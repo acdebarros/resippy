@@ -4,7 +4,9 @@ import unittest
 from unittest.mock import patch, MagicMock
 import sqlite3
 import os
-from resippy import new_recipe
+from resippy import new_recipe, view_menu
+import sys
+from io import StringIO
 
 class testDatabaseCreation(unittest.TestCase):
     def setUp(self):
@@ -104,6 +106,52 @@ class testNewRecipe(unittest.TestCase):
         mock_cursor.execute.assert_not_called()
         mock_connection.commit.assert_not_called()
 
+class TestViewMenu(unittest.TestCase):
+    @patch('resippy.cursor')
+    @patch('resippy.tabulate')
+    def test_basic_functionality(self, mock_tabulate, mock_cursor):
+        mock_cursor.execute.return_value = None
+        mock_cursor.fetchall.return_value = [('Spaghetti', 5, 4, 3, '2023-01-01')]
+        mock_cursor.description = [('name',), ('drumlin_rating',), ('ian_rating',), ('lina_rating',), ('last_made',)]
+        
+        captured_output = StringIO()
+        sys.stdout = captured_output
+        
+        view_menu({})
+        
+        sys.stdout = sys.__stdout__
+        
+        self.assertTrue(mock_cursor.execute.called)
+        self.assertTrue(mock_cursor.fetchall.called)
+        self.assertTrue(mock_tabulate.called)
+        self.assertIn('name', captured_output.getvalue())
+
+    @patch('resippy.cursor')
+    @patch('resippy.tabulate')
+    def test_empty_table(self, mock_tabulate, mock_cursor):
+        mock_cursor.execute.return_value = None
+        mock_cursor.fetchall.return_value = []
+        mock_cursor.description = [('name',), ('drumlin_rating',), ('ian_rating',), ('lina_rating',), ('last_made',)]
+        
+        view_menu({})
+        
+        mock_tabulate.assert_called_with([], headers=['name', 'drumlin_rating', 'ian_rating', 'lina_rating', 'last_made'], tablefmt="grid", numalign='center')
+
+    @patch('resippy.cursor')
+    @patch('resippy.tabulate')
+    def test_table_formatting(self, mock_tabulate, mock_cursor):
+        mock_cursor.execute.return_value = None
+        mock_cursor.fetchall.return_value = [('Spaghetti', 5, 4, 3, '2023-01-01')]
+        mock_cursor.description = [('name',), ('drumlin_rating',), ('ian_rating',), ('lina_rating',), ('last_made',)]
+        
+        view_menu({})
+        
+        mock_tabulate.assert_called_with(
+            [('Spaghetti', 5, 4, 3, '2023-01-01')],
+            headers=['name', 'drumlin_rating', 'ian_rating', 'lina_rating', 'last_made'],
+            tablefmt="grid",
+            numalign='center'
+        )
 
 if __name__ == '__main__':
     unittest.main()

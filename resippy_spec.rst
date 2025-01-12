@@ -1,6 +1,6 @@
-======================================
+=============================
 resippy program specification
-======================================
+=============================
 
 Description
 ===========
@@ -14,7 +14,7 @@ usage: resippy [--version] [--addnew] [--viewrecipe] [--viewmenu]
 
 Menu
 ----
--n, --new: Add a new recipe to the database. Must be followed by the recipe name. Additional optional arguments: [-drumlin_rating], [-ian_rating], [-lina_rating], [-last_made] (if these are not provided, they will be NULL in the table)
+-n, --new: Add a new recipe to the database. Must be followed by the recipe name. Additional optional arguments: [--drumlin_rating], [--ian_rating], [--lina_rating], [--last_made] (if these are not provided, they will be NULL in the table)
 --viewmenu: View the whole menu. Additional optional arguments:
 	-o, --order: 
 	-l, --limit:

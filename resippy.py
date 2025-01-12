@@ -5,6 +5,7 @@ import argparse
 import atexit
 from datetime import date, datetime
 import re
+from tabulate import tabulate
 
 # Get sqlite3 database
 connection = sqlite3.connect('resippy.db')
@@ -16,11 +17,13 @@ connection.commit()
 def new_recipe(args, **kwargs):
     """
     Adds a new recipe to the database.
-    When a new recipe is made, I need to:
-        * Add it to the menu table
         
     Arguments:
-        recipe_information(dict): Information passed from the command that at the very least MUST include the recipe name. May also include drumlin_rating, lina_rating, ian_rating, and last_made values.
+        args(dict): Contains required argument --new and potential optional arguments --drumlin_rating, --lina_rating, --ian_rating, and --last_made.
+    
+    Returns:
+        If added properly, returns True and an empty string.
+        If not added properly, returns False and the error.
     """
     # Parse argument
     try:
@@ -49,9 +52,22 @@ def new_recipe(args, **kwargs):
     except Exception as e:
         return False, e
 
-args = {'new': None, 'drumlin_rating': 5, 'ian_rating': 4, 'lina_rating': 3, 'last_made': '01/11/2022'}
-new_recipe(args)
+def view_menu(args, **kwargs):
+    """
+    Prints out the menu onto the console for easy viewing.
+
+    Args:
+        args(dict): Contains potential optional arguments --order, --limit, and/or --filter.
+    """
+
+    # Get Menu
+    cursor.execute("SELECT * FROM menu")
+    menu = cursor.fetchall()
     
+    # Print the headings
+    headers = [description[0] for description in cursor.description]
+    print(tabulate(menu, headers=headers, tablefmt="grid", numalign='center'))
+
 def create_parser():
     """
     Creates a parser for the program.
@@ -65,7 +81,7 @@ def create_parser():
     parser.add_argument('--ian_rating', type=float, help="ian's rating of the recipe")
     parser.add_argument('--lina_rating', type=float, help="Lina's rating of the recipe")
     parser.add_argument('--last_made', type=str, help="Date the recipe was last made (formatted as DD/MM/YYYY)")
-
+    parser.add_argument('--viewmenu', action="store_true", help="View the menu.")
     return parser
 
 def exit_handler():
@@ -87,4 +103,6 @@ if __name__ == "__main__":
             print("{} has been added to the homehold menu!".format(recipe_name))
         else:
             print("An error has ocurred. Please try again. \n Error Information: {error}".format(error=error))
+    if args.viewmenu:
+        view_menu(vars(args))
 
