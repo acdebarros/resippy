@@ -27,7 +27,8 @@ def new_recipe(args, **kwargs):
     """
     # Parse argument
     try:
-        recipe_information = {k:v for k,v in args.items() if v is not None}
+        recipe_arguments = ['new', 'drumlin_rating', 'lina_rating', 'ian_rating', 'last_made']
+        recipe_information = {k:v for k,v in args.items() if v is not None and k in recipe_arguments}
         recipe_information['name'] = recipe_information.pop('new')
         if 'last_made' in recipe_information:
             valid, e, recipe_information['last_made'] = check_date(recipe_information['last_made'])
@@ -74,13 +75,15 @@ def update_menu(args, **kwargs):
     recipe_id = recipe_id[0][0]
 
     # Find new updates from args
-    potential_updates = {k:v for k, v in args.items() if v is not None}
     potential_arguments = ["drumlin_rating", "lina_rating", "ian_rating", "last_made"]
-    updates = {k:v for k, v in potential_updates.items() if k in potential_arguments}
+    updates = {k:v for k, v in args.items() if v is not None and k in potential_arguments}
+
     if "last_made" in updates:
         valid, e, updates['last_made'] = check_date(updates['last_made'])
         if not valid:
             return valid, e
+        else:
+            updates['last_made'] = '"{update}"'.format(update=updates['last_made'])
     updates_query = ""
     for update in updates.keys():
         updates_query += "{column}={new_value},".format(column=update, new_value=updates[update])
@@ -102,16 +105,15 @@ def check_date(input_date):
     """
     date_pattern = r"(0[1-9]|[12][0-9]|3[01])\/(0[1-9]|1[0,1,2])\/(20)\d{2}"
     try:
-        datetime.strptime(input_date, "%d/%m/%Y")
         if not re.match(date_pattern, input_date):
             raise ValueError
         else:
-            last_made = input_date.split('/')
-            formatted_date = date(int(last_made[2]), int(last_made[1]), int(last_made[0]))
+            formatted_date = datetime.strptime(input_date, "%d/%m/%Y").strftime('%Y-%m-%d')
             return True, "", formatted_date
     except ValueError:
         return False, 'Incorrect date format for last-made date. Make sure to enter date as DD/MM/YYYY.', ''
 
+# I/O Functions
 def create_parser():
     """
     Creates a parser for the program.
