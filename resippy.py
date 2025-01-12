@@ -13,13 +13,19 @@ from datetime import date, datetime
 import re
 from tabulate import tabulate
 
-# Get sqlite3 database
-connection = sqlite3.connect('resippy.db')
-cursor = connection.cursor()
-cursor.execute('CREATE TABLE IF NOT EXISTS menu (id INTEGER PRIMARY KEY, name TEXT, drumlin_rating DECIMAL, ian_rating DECIMAL, lina_rating DECIMAL, last_made DATE)')
-connection.commit()
+# Database Set-Up
+def get_database():
+    """
+    Accesses the sqlite3 database.
+    """
+    # Connect to database & create cursor
+    connection = sqlite3.connect('resippy.db')
+    cursor = connection.cursor()
+    # Make tables if they do not already exist
+    cursor.execute('CREATE TABLE IF NOT EXISTS menu (id INTEGER PRIMARY KEY, name TEXT, drumlin_rating DECIMAL, ian_rating DECIMAL, lina_rating DECIMAL, last_made DATE, UNIQUE(id, name))')
+    connection.commit()
 
-# Add New Recipe to Database
+# Menu Functions
 def new_recipe(args, **kwargs):
     """
     Adds a new recipe to the database.
@@ -179,9 +185,12 @@ def exit_handler():
     connection.close()
 
 if __name__ == "__main__":
+    # Set up parser & exit handler
     atexit.register(exit_handler)
     parser = create_parser()
     args = parser.parse_args()
+    # Get Database
+    get_database()
     # Decide on Next Action
     ## Add new recipe
     if args.new:
