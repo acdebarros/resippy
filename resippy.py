@@ -30,14 +30,9 @@ def new_recipe(args, **kwargs):
         recipe_information = {k:v for k,v in args.items() if v is not None}
         recipe_information['name'] = recipe_information.pop('new')
         if 'last_made' in recipe_information:
-            date_pattern = r"(0[1-9]|[12][0-9]|3[01])\/(0[1-9]|1[0,1,2])\/(20)\d{2}"
-            assert re.match(date_pattern, recipe_information['last_made']), 'Incorrect date format for last-made date. Make sure to enter date as DD/MM/YYYY.'
-            try:
-                datetime.strptime(recipe_information['last_made'], "%d/%m/%Y")
-            except ValueError:
-                pass
-            last_made = recipe_information['last_made'].split('/')
-            recipe_information['last_made'] = date(int(last_made[2]), int(last_made[1]), int(last_made[0]))
+            valid, e, recipe_information['last_made'] = check_date(recipe_information['last_made'])
+            if not valid:
+                raise AssertionError
         columns = ", ".join(recipe_information.keys())
         placeholders = ", ".join(['?'] * len(recipe_information))
         query = "INSERT INTO menu ({0}) VALUES ({1})".format(columns, placeholders)
@@ -83,15 +78,9 @@ def update_menu(args, **kwargs):
     potential_arguments = ["drumlin_rating", "lina_rating", "ian_rating", "last_made"]
     updates = {k:v for k, v in potential_updates.items() if k in potential_arguments}
     if "last_made" in updates:
-        date_pattern = r"(0[1-9]|[12][0-9]|3[01])\/(0[1-9]|1[0,1,2])\/(20)\d{2}"
-        try:
-            datetime.strptime(updates['last_made'], "%d/%m/%Y")
-            if not re.match(date_pattern, updates['last_made']):
-                raise ValueError
-        except ValueError:
-            return False, 'Incorrect date format for last-made date. Make sure to enter date as DD/MM/YYYY.'
-        last_made = updates['last_made'].split('/')
-        updates['last_made'] = date(int(last_made[2]), int(last_made[1]), int(last_made[0]))
+        valid, e, updates['last_made'] = check_date(updates['last_made'])
+        if not valid:
+            return valid, e
     updates_query = ""
     for update in updates.keys():
         updates_query += "{column}={new_value},".format(column=update, new_value=updates[update])
@@ -103,7 +92,25 @@ def update_menu(args, **kwargs):
     cursor.execute(query)
     connection.commit()
     return True, ''
-    
+
+# Helper Functions
+def check_date(input_date):
+    """Ensures that a last_made argument date is in the correct format. Also reformats it.
+
+    Args:
+        date (str): The last_made argument passed through the console.
+    """
+    date_pattern = r"(0[1-9]|[12][0-9]|3[01])\/(0[1-9]|1[0,1,2])\/(20)\d{2}"
+    try:
+        datetime.strptime(input_date, "%d/%m/%Y")
+        if not re.match(date_pattern, input_date):
+            raise ValueError
+        else:
+            last_made = input_date.split('/')
+            formatted_date = date(int(last_made[2]), int(last_made[1]), int(last_made[0]))
+            return True, "", formatted_date
+    except ValueError:
+        return False, 'Incorrect date format for last-made date. Make sure to enter date as DD/MM/YYYY.', ''
 
 def create_parser():
     """
