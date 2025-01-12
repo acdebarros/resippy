@@ -1,7 +1,6 @@
 # resippy
 
 # Next steps:
-## Add delete function
 ## Update new_recipe so that it can't add a recipe that's already in the table
 ## Update update_menu so that it can't update a recipe that doesn't already exist in the table
 ## Finish unittesting for Version 1
@@ -22,7 +21,7 @@ def setup_database():
     Sets up the sqlite3 database.
     """
     # Make tables if they do not already exist
-    cursor.execute('CREATE TABLE IF NOT EXISTS menu (id INTEGER PRIMARY KEY, name TEXT, drumlin_rating DECIMAL, ian_rating DECIMAL, lina_rating DECIMAL, last_made DATE, UNIQUE(id, name))')
+    cursor.execute('CREATE TABLE IF NOT EXISTS menu (id INTEGER PRIMARY KEY, name TEXT UNIQUE, drumlin_rating DECIMAL, ian_rating DECIMAL, lina_rating DECIMAL, last_made DATE)')
     connection.commit()
 
 # Menu Functions
@@ -55,9 +54,12 @@ def new_recipe(args, **kwargs):
         placeholders = ", ".join(['?'] * len(recipe_information))
         query = "INSERT INTO menu ({0}) VALUES ({1})".format(columns, placeholders)
         # Add the new recipe to the database
-        cursor.execute(query, list(recipe_information.values()))
-        connection.commit()
-        return True, ''
+        try:
+            cursor.execute(query, list(recipe_information.values()))
+            connection.commit()
+            return True, ''
+        except sqlite3.IntegrityError:
+            return False, "{} is already in the homehold menu. If you would like to update this recipe, use --update_menu instead.".format(recipe_information['name'])
     except KeyError:
         return False, 'Recipe name missing'
     except AssertionError:
@@ -200,7 +202,7 @@ if __name__ == "__main__":
         if added:
             print("{} has been added to the homehold menu!".format(recipe_name))
         else:
-            print("An error has ocurred. Please try again. \n Error Information: {error}".format(error=error))
+            print("An error has ocurred. Please try again. \nError Information: {error}".format(error=error))
     ## View Menu
     if args.viewmenu:
         view_menu(vars(args))
@@ -210,7 +212,7 @@ if __name__ == "__main__":
         if updated:
             print("{} has been updated in the homehold menu!".format(args.update_menu))
         else:
-            print("An error has ocurred. Please try again. \n Error Information: {error}".format(error=error))
+            print("An error has ocurred. Please try again. \nError Information: {error}".format(error=error))
     ## Delete a Recipe
     if args.del_recipe:
         confirm = input("{} will be permanently deleted from the homehold menu. Are you sure you would like to continue? [Y/N]  ".format(args.del_recipe))
@@ -221,9 +223,9 @@ if __name__ == "__main__":
                 if deleted:
                     print("{} has been deleted from the menu.".format(args.del_recipe))
                 else:
-                    print("An error has ocurred. Please try again. \n Error Information: {error}".format(error=error))
+                    print("An error has ocurred. Please try again. \nError Information: {error}".format(error=error))
                     deleted = True
             elif confirm.strip().upper() == "N":
                 deleted = True
             else:
-                confirm = input("Unrecognized argument. Please enter Y or N. \n {} will be permanently deleted from the homehold menu. Are you sure you would like to continue? [Y/N]  ".format(args.del_recipe))
+                confirm = input("Unrecognized argument. Please enter Y or N. \n{} will be permanently deleted from the homehold menu. Are you sure you would like to continue? [Y/N]  ".format(args.del_recipe))
