@@ -21,7 +21,7 @@ Menu
 	-f, --filter:
 -t, --toprecipes: View the menu organized by rating. Must be followed by one of "drumlin", "ian", or "lina". Additional optional arguments:
 	-l, --limit:
--u, --update: Update the menu. Must be followed by the recipe name and one of the following: [-drumlin_rating], [-ian_rating], [-lina_rating], [-last_made]
+-u, --update_menu: Update the menu. Must be followed by the recipe name and one of the following: [-drumlin_rating], [-ian_rating], [-lina_rating], [-last_made]
 -d, --delete: Delete a recipe from the menu. Must be followed by the recipe name. User will be prompted to confirm [Y/N].
 --random: Prints out a random meal from the menu. Additional arguments:
 	-f, --filter:
