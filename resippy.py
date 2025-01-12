@@ -1,7 +1,6 @@
 # resippy
 
 # Next steps:
-## Update new_recipe so that it can't add a recipe that's already in the table
 ## Update update_menu so that it can't update a recipe that doesn't already exist in the table
 ## Finish unittesting for Version 1
 
@@ -95,8 +94,10 @@ def update_menu(args, **kwargs):
     # Get Current Recipe Values
     cursor.execute("SELECT id FROM menu WHERE name=?", (args['update_menu'],))
     recipe_id = cursor.fetchall()
-    recipe_id = recipe_id[0][0]
-
+    if recipe_id == 1:
+        recipe_id = recipe_id[0][0]
+    else:
+        return False, "{} was not found in the menu. If you would like to add it, please use --new.".format(args['update_menu'])
     # Find new updates from args
     potential_arguments = ["drumlin_rating", "lina_rating", "ian_rating", "last_made"]
     updates = {k:v for k, v in args.items() if v is not None and k in potential_arguments}
