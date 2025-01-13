@@ -1,6 +1,6 @@
-======================================
+=============================
 resippy program specification
-======================================
+=============================
 
 Description
 ===========
@@ -14,14 +14,14 @@ usage: resippy [--version] [--addnew] [--viewrecipe] [--viewmenu]
 
 Menu
 ----
--n, --new: Add a new recipe to the database. Must be followed by the recipe name. Additional optional arguments: [-drumlin_rating], [-ian_rating], [-lina_rating], [-last_made] (if these are not provided, they will be NULL in the table)
+-n, --new: Add a new recipe to the database. Must be followed by the recipe name. Additional optional arguments: [--drumlin_rating], [--ian_rating], [--lina_rating], [--last_made] (if these are not provided, they will be NULL in the table)
 --viewmenu: View the whole menu. Additional optional arguments:
 	-o, --order: 
 	-l, --limit:
 	-f, --filter:
 -t, --toprecipes: View the menu organized by rating. Must be followed by one of "drumlin", "ian", or "lina". Additional optional arguments:
 	-l, --limit:
--u, --update: Update the menu. Must be followed by the recipe name and one of the following: [-drumlin_rating], [-ian_rating], [-lina_rating], [-last_made]
+-u, --update_menu: Update the menu. Must be followed by the recipe name and one of the following: [-drumlin_rating], [-ian_rating], [-lina_rating], [-last_made]
 -d, --delete: Delete a recipe from the menu. Must be followed by the recipe name. User will be prompted to confirm [Y/N].
 --random: Prints out a random meal from the menu. Additional arguments:
 	-f, --filter:
