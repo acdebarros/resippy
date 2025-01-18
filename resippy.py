@@ -21,7 +21,7 @@ def setup_database(cursor, connection):
         cursor(sqlite3.Cursor object): Cursor for the resippy database.
     """
     # Make tables if they do not already exist
-    cursor.execute('CREATE TABLE IF NOT EXISTS menu (id INTEGER PRIMARY KEY, name TEXT UNIQUE, drumlin_rating DECIMAL, ian_rating DECIMAL, lina_rating DECIMAL, last_made DATE)')
+    cursor.execute('CREATE TABLE IF NOT EXISTS menu (id INTEGER PRIMARY KEY, name TEXT UNIQUE, dish_type TEXT, cuisine TEXT, drumlin_rating DECIMAL, ian_rating DECIMAL, lina_rating DECIMAL, last_made DATE)')
     connection.commit()
 
 # Menu Functions
@@ -30,7 +30,7 @@ def new_recipe(args, **kwargs):
     Adds a new recipe to the database.
         
     Arguments:
-        args(dict): Contains required argument --new and potential optional arguments --drumlin_rating, --lina_rating, --ian_rating, and --last_made.
+        args(dict): Contains required argument --new and potential optional arguments --dish_type, --cuisine, --drumlin_rating, --lina_rating, --ian_rating, and --last_made.
     
     Raises:
         KeyError if the recipe name is missing
@@ -44,7 +44,7 @@ def new_recipe(args, **kwargs):
     """
     # Parse argument
     try:
-        recipe_data_template = ["new", "drumlin_rating", "lina_rating", "ian_rating", "last_made"]
+        recipe_data_template = ["new", "dish_type", "cuisine", "drumlin_rating", "lina_rating", "ian_rating", "last_made"]
         recipe_information = {k:v for k,v in args.items() if v is not None and k in recipe_data_template}
         recipe_information['name'] = recipe_information.pop('new')
         if 'last_made' in recipe_information:
@@ -107,7 +107,7 @@ def update_menu(args, **kwargs):
         else:
             return False, "{} was not found in the menu. If you would like to add it, please use --new.".format(args['update_menu'])
         # Find new updates from args
-        potential_arguments = ["drumlin_rating", "lina_rating", "ian_rating", "last_made"]
+        potential_arguments = ["dish_type", "cuisine", "drumlin_rating", "lina_rating", "ian_rating", "last_made"]
         updates = {k:v for k, v in args.items() if v is not None and k in potential_arguments}
         if len(updates) == 0:
             return False, "Please include the information you need to update (either a rating or a last-made date)."
@@ -118,6 +118,10 @@ def update_menu(args, **kwargs):
             else:
                 updates['last_made'] = '"{update}"'.format(update=updates['last_made'])
         updates_query = ""
+        if "cuisine" in updates:
+            updates["cuisine"] = '"{cuisine}"'.format(cuisine=updates['cuisine'])
+        if "dish_type" in updates:
+            updates["dish_type"] = '"{dish_type}"'.format(dish_type=updates['dish_type'])
         for update in updates.keys():
             updates_query += "{column}={new_value},".format(column=update, new_value=updates[update])
             updates_query = updates_query[:-1]
@@ -209,6 +213,7 @@ def check_filter(filter):
     Raises:
         ValueError if there is no WHERE query within the SQL query.
         ArgumentTypeError if the variable is not in the menu, or if the comparison value is not in the correct format for that variable.
+    
     Returns:
         sql_query(string): Filter formatted as an SQL query.
     """
@@ -269,6 +274,8 @@ def create_parser():
     parser.add_argument('--ian_rating', type=check_rating, help="ian's rating of the recipe")
     parser.add_argument('--lina_rating', type=check_rating, help="Lina's rating of the recipe")
     parser.add_argument('--last_made', type=str, help="Date the recipe was last made (formatted as DD/MM/YYYY)")
+    parser.add_argument('--cuisine', type=str, help="Cuisine the dish is from (e.g., Mexican, Thai).")
+    parser.add_argument('--dish_type', type=str, help="Dish type (e.g., pasta, salad, potatoes).")
     parser.add_argument('--viewmenu', action="store_true", help="View the menu.")
     parser.add_argument('--filter', type=check_filter,  help="Filter you would like to use. Should be formatted as an SQL condition.")
     group = parser.add_mutually_exclusive_group()
