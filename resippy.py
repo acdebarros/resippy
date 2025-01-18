@@ -1,9 +1,7 @@
 # resippy
 
-# Next steps:
-## Finish unittesting for Version 1
-
 import sqlite3
+import sqlparse
 import argparse
 import atexit
 from datetime import date, datetime
@@ -17,6 +15,10 @@ cursor = connection.cursor()
 def setup_database(cursor, connection):
     """
     Sets up the sqlite3 database.
+
+    Arguments:
+        connection(sqlite3.Connection object): Connection to the resippy database. 
+        cursor(sqlite3.Cursor object): Cursor for the resippy database.
     """
     # Make tables if they do not already exist
     cursor.execute('CREATE TABLE IF NOT EXISTS menu (id INTEGER PRIMARY KEY, name TEXT UNIQUE, drumlin_rating DECIMAL, ian_rating DECIMAL, lina_rating DECIMAL, last_made DATE)')
@@ -73,8 +75,11 @@ def view_menu(args, **kwargs):
     Args:
         args(dict): Contains potential optional arguments --order, --limit, and/or --filter.
     """
-    # Get Menu
-    cursor.execute("SELECT * FROM menu")
+    # Get Filter
+    if args['filter'] != None:
+        cursor.execute(args['filter'])
+    else:
+        cursor.execute("SELECT * FROM menu")
     menu = cursor.fetchall()
     
     # Print the headings
@@ -156,6 +161,10 @@ def check_date(input_date):
 
     Args:
         date (str): The last_made argument passed through the console.
+    
+    Returns:
+        True, an empty string, and the date formatted as a datetime object if the date was correct format.
+        False, an error message, and an empty string if the date was out of range or in the incorrect format.    
     """
     date_pattern = r"(0[1-9]|[12][0-9]|3[01])\/(0[1-9]|1[0,1,2])\/(20)\d{2}"
     try:
@@ -170,6 +179,83 @@ def check_date(input_date):
     except ValueError:
         return False, 'Incorrect date format for last-made date. Make sure to enter date as DD/MM/YYYY.', ''
 
+def check_rating(rating):
+    """
+    Checks whether a provided rating is in the correct range.
+
+    Args:
+        rating(string): The rating provided by the user.
+
+    Raises:
+        argparse.ArgumentTypeError if the rating is not a number or if it is not between 1.0 and 5.0.
+    
+    Returns:
+        rating(float): The rating reformatted as a float.
+    """
+    try: 
+        rating = float(rating.strip())
+    except ValueError:
+        raise argparse.ArgumentTypeError("Invalid rating {r}. Ratings must be numbers between 1 and 5.".format(r=rating))
+    if not 1.0 <= rating <= 5.0:
+        raise argparse.ArgumentTypeError("Invalid rating {r}. Ratings must be numbers between 1 and 5.".format(r=rating))
+    return rating
+
+def check_filter(filter):
+    """Checks whether the filter input by the user is in the right format.
+
+    Args:
+        filter(string): Filter provided by the user; should be formatted as an SQL query.
+    
+    Raises:
+        ValueError if there is no WHERE query within the SQL query.
+        ArgumentTypeError if the variable is not in the menu, or if the comparison value is not in the correct format for that variable.
+    Returns:
+        sql_query(string): Filter formatted as an SQL query.
+    """
+    # Create & parse SQL query
+    query = "SELECT * FROM menu WHERE "
+    query += filter
+    sql_query = sqlparse.parse(query)[0]
+    where_query = None
+
+    # Get the WHERE part of the query
+    for token in sql_query.tokens:
+        if isinstance(token, sqlparse.sql.Where):
+            where_query = token
+
+    if where_query is None:
+        raise ValueError("No WHERE clause found in the SQL query.")
+    
+    # Get comparisons from the WHERE part of the query
+    comparisons = []
+    for token in where_query.tokens:
+        if isinstance(token, sqlparse.sql.Comparison):
+            comparisons.append(token)
+    
+    # Find valid variable names
+    cursor.execute("SELECT name FROM pragma_table_info('menu')")
+    retrieved_columns = cursor.fetchall()
+    valid_columns = []
+    for col in retrieved_columns:
+        valid_columns.append(col[0])
+    
+    # Iterate over comparisons to validate them
+    for comparison in comparisons:
+        if comparison.left.normalized not in valid_columns:
+            raise argparse.ArgumentTypeError("Invalid filter: the variable {v} was not found in the menu.".format(v=comparison.left.normalized))
+        if comparison.left.normalized in ['drumlin_rating', 'lina_rating', 'ian_rating']:
+            try:
+                float(comparison.right.normalized)
+            except ValueError:
+                raise argparse.ArgumentTypeError("Invalid rating {r}. Ratings must be numbers between 1 and 5.".format(r=comparison.right.normalized))
+            check_rating(comparison.right.normalized)
+        elif comparison.left.normalized == "last_made":
+            date_correct, message, formatted_date = check_date(comparison.right.normalized)
+            if not date_correct:
+                raise argparse.ArgumentTypeError(message)
+    
+    return sql_query.value
+
 # I/O Functions
 def create_parser():
     """
@@ -179,23 +265,18 @@ def create_parser():
 
     # Menu Parsers
     ## For adding a new recipe
-    parser.add_argument('--drumlin_rating', type=float, action=CheckRange, help="Drumlin's rating of the recipe")
-    parser.add_argument('--ian_rating', type=float, action=CheckRange, help="ian's rating of the recipe")
-    parser.add_argument('--lina_rating', type=float, action=CheckRange, help="Lina's rating of the recipe")
+    parser.add_argument('--drumlin_rating', type=check_rating, help="Drumlin's rating of the recipe")
+    parser.add_argument('--ian_rating', type=check_rating, help="ian's rating of the recipe")
+    parser.add_argument('--lina_rating', type=check_rating, help="Lina's rating of the recipe")
     parser.add_argument('--last_made', type=str, help="Date the recipe was last made (formatted as DD/MM/YYYY)")
     parser.add_argument('--viewmenu', action="store_true", help="View the menu.")
+    parser.add_argument('--filter', type=check_filter,  help="Filter you would like to use. Should be formatted as an SQL condition.")
     group = parser.add_mutually_exclusive_group()
     group.add_argument('--new', help="Name of the recipe you would like to add to the menu")
     group.add_argument('--update_menu', help="Name of the recipe you would like to update in the menu")
     group.add_argument('--del_recipe', help="Name of the recipe you would like to delete from the menu")
 
     return parser
-
-class CheckRange(argparse.Action):
-    def __call__(self, parser, namespace, values, option_string=None):
-        if not 1.0 <= values <= 5.0:
-            raise argparse.ArgumentError(self, "Ratings must be between 0 and 5")
-        setattr(namespace, self.dest, values)
 
 def exit_handler():
     """

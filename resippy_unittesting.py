@@ -1,12 +1,14 @@
 # resippy.py unit testing
 
 import unittest
-from unittest.mock import patch
+from unittest.mock import patch, MagicMock
 import sqlite3
 import os
-from resippy import new_recipe, view_menu, setup_database, update_menu, check_date, create_parser
+from resippy import new_recipe, view_menu, setup_database, update_menu, check_date, create_parser, check_rating, check_filter
 import sys
 from io import StringIO
+import argparse
+from sqlparse.sql import Where, Comparison, Token
 
 # 3 tests
 class testDatabaseCreation(unittest.TestCase):
@@ -134,7 +136,7 @@ class testNewRecipe(unittest.TestCase):
         mock_cursor.execute.assert_called_once()
         mock_connection.commit.assert_not_called()
 
-# 3 tests
+# 4 tests
 class testViewMenu(unittest.TestCase):
     @patch('resippy.cursor')
     @patch('resippy.tabulate')
@@ -146,7 +148,7 @@ class testViewMenu(unittest.TestCase):
         captured_output = StringIO()
         sys.stdout = captured_output
         
-        view_menu({})
+        view_menu({'filter': None})
         
         sys.stdout = sys.__stdout__
         
@@ -162,7 +164,7 @@ class testViewMenu(unittest.TestCase):
         mock_cursor.fetchall.return_value = []
         mock_cursor.description = [('name',), ('drumlin_rating',), ('ian_rating',), ('lina_rating',), ('last_made',)]
         
-        view_menu({})
+        view_menu({'filter': None})
         
         mock_tabulate.assert_called_with([], headers=['name', 'drumlin_rating', 'ian_rating', 'lina_rating', 'last_made'], tablefmt="grid", numalign='center')
 
@@ -173,7 +175,7 @@ class testViewMenu(unittest.TestCase):
         mock_cursor.fetchall.return_value = [('Spaghetti', 5, 4, 3, '2023-01-01')]
         mock_cursor.description = [('name',), ('drumlin_rating',), ('ian_rating',), ('lina_rating',), ('last_made',)]
         
-        view_menu({})
+        view_menu({'filter': None})
         
         mock_tabulate.assert_called_with(
             [('Spaghetti', 5, 4, 3, '2023-01-01')],
@@ -182,6 +184,22 @@ class testViewMenu(unittest.TestCase):
             numalign='center'
         )
 
+    @patch('resippy.cursor')
+    @patch('resippy.tabulate')    
+    def test_filtered_table(self, mock_tabulate, mock_cursor):
+        mock_cursor.execute.return_value = None
+        mock_cursor.fetchall.return_value = [('Pizza', 5, 4, 3, '2023-01-01'), ('Burger', 5, 4, 3, '2024-01-01')]
+        mock_cursor.description = [('name',), ('drumlin_rating',), ('ian_rating',), ('lina_rating',), ('last_made',)]
+        args = {'filter': 'SELECT * FROM menu WHERE drumlin_rating = 5'}
+        
+        view_menu(args)
+        
+        mock_tabulate.assert_called_with(
+            [('Pizza', 5, 4, 3, '2023-01-01'), ('Burger', 5, 4, 3, '2024-01-01')],
+            headers=['name', 'drumlin_rating', 'ian_rating', 'lina_rating', 'last_made'],
+            tablefmt="grid",
+            numalign='center'
+        )
 # 8 tests
 class testUpdateMenu(unittest.TestCase):
     @patch('resippy.connection')
@@ -301,17 +319,133 @@ class testCheckDate(unittest.TestCase):
         self.assertEqual(output_date, "")
 
 # 3 tests
+class testCheckRating(unittest.TestCase):
+    def test_valid_case(self):
+        rating = "3"
+        out = check_rating(rating)
+        self.assertEqual(float(rating), out)
+
+    def test_out_of_range(self):
+        rating = "5.2"
+        with self.assertRaises(argparse.ArgumentTypeError):
+            check_rating(rating)
+    
+    def test_not_float(self):
+        rating = "Great!"
+        with self.assertRaises(argparse.ArgumentTypeError):
+            check_rating(rating)
+
+# 5 tests
+class testCheckFilter(unittest.TestCase):
+    @patch('resippy.cursor')
+    @patch('sqlparse.parse')
+    def test_good_filter(self, mock_sqlparse, mock_cursor):
+        where_token = MagicMock(spec=Where)
+        comparison_token = MagicMock(spec=Comparison)
+        comparison_token.left.normalized = "drumlin_rating"
+        comparison_token.right.normalized = "5"
+        where_token.tokens = [comparison_token]
+        mock_sql_query = MagicMock()
+        mock_sql_query.tokens = [where_token]
+        mock_sql_query.value = "SELECT * FROM menu WHERE drumlin_rating = 5"
+        mock_sqlparse.return_value = [mock_sql_query]
+        # Mocking cursor behavior for valid columns
+        mock_cursor.fetchall.return_value = [('name',), ('drumlin_rating',), ('lina_rating',), ('ian_rating',), ('last_made',)]
+        filter_condition = "drumlin_rating = 5"
+        result = check_filter(filter_condition)
+        print(result)
+        self.assertIn("SELECT * FROM menu WHERE drumlin_rating = 5", result)
+
+    @patch('resippy.cursor')
+    @patch('sqlparse.parse')
+    def test_wrong_var_name(self, mock_sqlparse, mock_cursor):
+        where_token = MagicMock(spec=Where)
+        comparison_token = MagicMock(spec=Comparison)
+        comparison_token.left.normalized = "bianca_rating"
+        comparison_token.right.normalized = "5"
+        where_token.tokens = [comparison_token]
+        mock_sql_query = MagicMock()
+        mock_sql_query.tokens = [where_token]
+        mock_sql_query.value = "SELECT * FROM menu WHERE bianca_rating = 5"
+        mock_sqlparse.return_value = [mock_sql_query]
+        mock_cursor.fetchall.return_value = [('name',), ('drumlin_rating',), ('lina_rating',), ('ian_rating',), ('last_made',)]
+        # Mocking cursor behavior for valid columns
+        filter_condition = "bianca_rating = 5"
+        with self.assertRaises(argparse.ArgumentTypeError) as context:
+            check_filter(filter_condition)
+        self.assertEqual(str(context.exception), "Invalid filter: the variable bianca_rating was not found in the menu.")
+
+    @patch('resippy.cursor')
+    @patch('sqlparse.parse')
+    def test_wrong_rating_val(self, mock_sqlparse, mock_cursor):
+        where_token = MagicMock(spec=Where)
+        comparison_token = MagicMock(spec=Comparison)
+        comparison_token.left.normalized = "ian_rating"
+        comparison_token.right.normalized = "great"
+        where_token.tokens = [comparison_token]
+        mock_sql_query = MagicMock()
+        mock_sql_query.tokens = [where_token]
+        mock_sql_query.value = "SELECT * FROM menu WHERE ian_rating = great"
+        mock_sqlparse.return_value = [mock_sql_query]
+        mock_cursor.fetchall.return_value = [('name',), ('drumlin_rating',), ('lina_rating',), ('ian_rating',), ('last_made',)]
+        # Mocking cursor behavior for valid columns
+        filter_condition = "ian_rating = great"
+        with self.assertRaises(argparse.ArgumentTypeError) as context:
+            check_filter(filter_condition)
+        self.assertEqual(str(context.exception), "Invalid rating great. Ratings must be numbers between 1 and 5.")
+
+    @patch('resippy.cursor')
+    @patch('sqlparse.parse')
+    def test_bad_rating(self, mock_sqlparse, mock_cursor):
+        where_token = MagicMock(spec=Where)
+        comparison_token = MagicMock(spec=Comparison)
+        comparison_token.left.normalized = "drumlin_rating"
+        comparison_token.right.normalized = "7"
+        where_token.tokens = [comparison_token]
+        mock_sql_query = MagicMock()
+        mock_sql_query.tokens = [where_token]
+        mock_sql_query.value = "SELECT * FROM menu WHERE drumlin_rating = 7"
+        mock_sqlparse.return_value = [mock_sql_query]
+        mock_cursor.fetchall.return_value = [('name',), ('drumlin_rating',), ('lina_rating',), ('ian_rating',), ('last_made',)]
+        # Mocking cursor behavior for valid columns
+        filter_condition = "drumlin_rating = 7"
+        with self.assertRaises(argparse.ArgumentTypeError) as context:
+            check_filter(filter_condition)
+        self.assertEqual(str(context.exception), "Invalid rating 7.0. Ratings must be numbers between 1 and 5.")
+
+    
+    @patch('resippy.cursor')
+    @patch('sqlparse.parse')
+    def test_bad_date(self, mock_sqlparse, mock_cursor):
+        where_token = MagicMock(spec=Where)
+        comparison_token = MagicMock(spec=Comparison)
+        comparison_token.left.normalized = "last_made"
+        comparison_token.right.normalized = "35-01-2025"
+        where_token.tokens = [comparison_token]
+        mock_sql_query = MagicMock()
+        mock_sql_query.tokens = [where_token]
+        mock_sql_query.value = "SELECT * FROM menu WHERE last_made = 35-01-2025"
+        mock_sqlparse.return_value = [mock_sql_query]
+        mock_cursor.fetchall.return_value = [('name',), ('drumlin_rating',), ('lina_rating',), ('ian_rating',), ('last_made',)]
+        # Mocking cursor behavior for valid columns
+        filter_condition = "last_made = 35-01-2025"
+        with self.assertRaises(argparse.ArgumentTypeError) as context:
+            check_filter(filter_condition)
+        self.assertEqual(str(context.exception), "Incorrect date format for last-made date. Make sure to enter date as DD/MM/YYYY.")
+
+# 3 tests
 class testCreateParser(unittest.TestCase):
     def setUp(self):
         self.parser = create_parser()
 
     def test_parser_arguments(self):
-        parsed = self.parser.parse_args(['--new', 'Spaghetti', '--drumlin_rating', '5', '--ian_rating', '5', '--lina_rating', '5', '--last_made', "2019", '--viewmenu'])
+        parsed = self.parser.parse_args(['--new', 'Spaghetti', '--drumlin_rating', '5', '--ian_rating', '5', '--lina_rating', '5', '--last_made', "2019", '--viewmenu', '--filter', 'drumlin_rating = 5'])
         self.assertEqual(parsed.new, "Spaghetti")
         self.assertEqual(parsed.drumlin_rating, 5)
         self.assertEqual(parsed.ian_rating, 5)
         self.assertEqual(parsed.lina_rating, 5)
         self.assertEqual(parsed.last_made, "2019")
+        self.assertEqual(parsed.filter, "SELECT * FROM menu WHERE drumlin_rating = 5")
         self.assertTrue(parsed.viewmenu)
 
     def test_parser_mutually_exclusive(self):
@@ -321,6 +455,10 @@ class testCreateParser(unittest.TestCase):
     def test_parser_rating_values(self):
         with self.assertRaises(SystemExit):
             parsed = self.parser.parse_args(['--ian_rating', '70'])
+    
+    def test_parser_bad_filter(self):
+        with self.assertRaises(SystemExit):
+            parsed = self.parser.parse_args(['--viewmenu', '--filter', 'bianca_rating > 5'])
 
 if __name__ == '__main__':
     unittest.main()
