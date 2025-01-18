@@ -39,7 +39,7 @@ Delete a recipe. Include the name of the recipe you would like to delete.
 
 In the next milestone, I hope to:
 
-- [ X ] Update the viewmenu option such that I can also filter the menu based on ratings or last-made dates;
+- [x] Update the viewmenu option such that I can also filter the menu based on ratings or last-made dates;
 - [ ] Update the viewmenu option such that I can organize the rows by rating or by last_made dates;
 - [ ] Limit the printed recipes to a certain number rather than printing the entire menu
 - [ ] Add a "Dish Type" column to the menu table that includes options such as "Pasta", "Soup", "Salad", etc.
