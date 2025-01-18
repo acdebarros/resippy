@@ -38,10 +38,12 @@ class testDatabaseCreation(unittest.TestCase):
         expected_columns = [
             (0, 'id', 'INTEGER', 0, None, 1),
             (1, 'name', 'TEXT', 0, None, 0),
-            (2, 'drumlin_rating', 'DECIMAL', 0, None, 0),
-            (3, 'ian_rating', 'DECIMAL', 0, None, 0),
-            (4, 'lina_rating', 'DECIMAL', 0, None, 0),
-            (5, 'last_made', 'DATE', 0, None, 0)
+            (2, 'dish_type', 'TEXT', 0, None, 0),
+            (3, 'cuisine', 'TEXT', 0, None, 0),
+            (4, 'drumlin_rating', 'DECIMAL', 0, None, 0),
+            (5, 'ian_rating', 'DECIMAL', 0, None, 0),
+            (6, 'lina_rating', 'DECIMAL', 0, None, 0),
+            (7, 'last_made', 'DATE', 0, None, 0)
         ]
         self.assertEqual(columns, expected_columns)
 
@@ -60,11 +62,11 @@ class testNewRecipe(unittest.TestCase):
     @patch('resippy.cursor')
     @patch('resippy.connection')
     def test_full_successful_addition(self, mock_connection, mock_cursor):
-        args = {'new': 'Spaghetti', 'drumlin_rating': 5, 'ian_rating': 4, 'lina_rating': 3, 'last_made': '01/11/2022'}
+        args = {'new': 'Spaghetti', 'dish_type': "Pasta", 'cuisine': 'Italian', 'drumlin_rating': 5, 'ian_rating': 4, 'lina_rating': 3, 'last_made': '01/11/2022'}
         success, message = new_recipe(args)
         self.assertTrue(success)
         self.assertEqual(message, '')
-        mock_cursor.execute.assert_called_once_with('INSERT INTO menu (drumlin_rating, ian_rating, lina_rating, last_made, name) VALUES (?, ?, ?, ?, ?)', [5, 4, 3, '2022-11-01', 'Spaghetti'])
+        mock_cursor.execute.assert_called_once_with('INSERT INTO menu (dish_type, cuisine, drumlin_rating, ian_rating, lina_rating, last_made, name) VALUES (?, ?, ?, ?, ?, ?, ?)', ['Pasta', 'Italian', 5, 4, 3, '2022-11-01', 'Spaghetti'])
         mock_connection.commit.assert_called_once()
     
     @patch('resippy.cursor')
@@ -142,8 +144,8 @@ class testViewMenu(unittest.TestCase):
     @patch('resippy.tabulate')
     def test_basic_functionality(self, mock_tabulate, mock_cursor):
         mock_cursor.execute.return_value = None
-        mock_cursor.fetchall.return_value = [('Spaghetti', 5, 4, 3, '2023-01-01')]
-        mock_cursor.description = [('name',), ('drumlin_rating',), ('ian_rating',), ('lina_rating',), ('last_made',)]
+        mock_cursor.fetchall.return_value = [('Spaghetti', 'Pasta', 'Italian', 5, 4, 3, '2023-01-01')]
+        mock_cursor.description = [('name',), ('dish_type',), ('cuisine',), ('drumlin_rating',), ('ian_rating',), ('lina_rating',), ('last_made',)]
         
         captured_output = StringIO()
         sys.stdout = captured_output
@@ -162,24 +164,24 @@ class testViewMenu(unittest.TestCase):
     def test_empty_table(self, mock_tabulate, mock_cursor):
         mock_cursor.execute.return_value = None
         mock_cursor.fetchall.return_value = []
-        mock_cursor.description = [('name',), ('drumlin_rating',), ('ian_rating',), ('lina_rating',), ('last_made',)]
+        mock_cursor.description = [('name',), ('dish_type',), ('cuisine',), ('drumlin_rating',), ('ian_rating',), ('lina_rating',), ('last_made',)]
         
         view_menu({'filter': None})
         
-        mock_tabulate.assert_called_with([], headers=['name', 'drumlin_rating', 'ian_rating', 'lina_rating', 'last_made'], tablefmt="grid", numalign='center')
+        mock_tabulate.assert_called_with([], headers=['name', 'dish_type', 'cuisine', 'drumlin_rating', 'ian_rating', 'lina_rating', 'last_made'], tablefmt="grid", numalign='center')
 
     @patch('resippy.cursor')
     @patch('resippy.tabulate')
     def test_table_formatting(self, mock_tabulate, mock_cursor):
         mock_cursor.execute.return_value = None
-        mock_cursor.fetchall.return_value = [('Spaghetti', 5, 4, 3, '2023-01-01')]
-        mock_cursor.description = [('name',), ('drumlin_rating',), ('ian_rating',), ('lina_rating',), ('last_made',)]
+        mock_cursor.fetchall.return_value = [('Spaghetti', 'Pasta', 'Italian', 5, 4, 3, '2023-01-01')]
+        mock_cursor.description = [('name',), ('dish_type',), ('cuisine',), ('drumlin_rating',), ('ian_rating',), ('lina_rating',), ('last_made',)]
         
         view_menu({'filter': None})
         
         mock_tabulate.assert_called_with(
-            [('Spaghetti', 5, 4, 3, '2023-01-01')],
-            headers=['name', 'drumlin_rating', 'ian_rating', 'lina_rating', 'last_made'],
+            [('Spaghetti', 'Pasta', 'Italian', 5, 4, 3, '2023-01-01')],
+            headers=['name', 'dish_type', 'cuisine', 'drumlin_rating', 'ian_rating', 'lina_rating', 'last_made'],
             tablefmt="grid",
             numalign='center'
         )
@@ -188,15 +190,15 @@ class testViewMenu(unittest.TestCase):
     @patch('resippy.tabulate')    
     def test_filtered_table(self, mock_tabulate, mock_cursor):
         mock_cursor.execute.return_value = None
-        mock_cursor.fetchall.return_value = [('Pizza', 5, 4, 3, '2023-01-01'), ('Burger', 5, 4, 3, '2024-01-01')]
-        mock_cursor.description = [('name',), ('drumlin_rating',), ('ian_rating',), ('lina_rating',), ('last_made',)]
+        mock_cursor.fetchall.return_value = [('Pizza', 'Pizza', 'Italian', 5, 4, 3, '2023-01-01'), ('Burger', 'Burger', 'American', 5, 4, 3, '2024-01-01')]
+        mock_cursor.description = [('name',), ('dish_type',), ('cuisine',), ('drumlin_rating',), ('ian_rating',), ('lina_rating',), ('last_made',)]
         args = {'filter': 'SELECT * FROM menu WHERE drumlin_rating = 5'}
         
         view_menu(args)
         
         mock_tabulate.assert_called_with(
-            [('Pizza', 5, 4, 3, '2023-01-01'), ('Burger', 5, 4, 3, '2024-01-01')],
-            headers=['name', 'drumlin_rating', 'ian_rating', 'lina_rating', 'last_made'],
+            [('Pizza', 'Pizza', 'Italian', 5, 4, 3, '2023-01-01'), ('Burger', 'Burger', 'American', 5, 4, 3, '2024-01-01')],
+            headers=['name', 'dish_type', 'cuisine', 'drumlin_rating', 'ian_rating', 'lina_rating', 'last_made'],
             tablefmt="grid",
             numalign='center'
         )
@@ -433,14 +435,16 @@ class testCheckFilter(unittest.TestCase):
             check_filter(filter_condition)
         self.assertEqual(str(context.exception), "Incorrect date format for last-made date. Make sure to enter date as DD/MM/YYYY.")
 
-# 3 tests
+# 4 tests
 class testCreateParser(unittest.TestCase):
     def setUp(self):
         self.parser = create_parser()
 
     def test_parser_arguments(self):
-        parsed = self.parser.parse_args(['--new', 'Spaghetti', '--drumlin_rating', '5', '--ian_rating', '5', '--lina_rating', '5', '--last_made', "2019", '--viewmenu', '--filter', 'drumlin_rating = 5'])
+        parsed = self.parser.parse_args(['--new', 'Spaghetti', '--dish_type', 'Pasta', '--cuisine', 'Italian', '--drumlin_rating', '5', '--ian_rating', '5', '--lina_rating', '5', '--last_made', "2019", '--viewmenu', '--filter', 'drumlin_rating = 5'])
         self.assertEqual(parsed.new, "Spaghetti")
+        self.assertEqual(parsed.dish_type, "Pasta")
+        self.assertEqual(parsed.cuisine, "Italian")
         self.assertEqual(parsed.drumlin_rating, 5)
         self.assertEqual(parsed.ian_rating, 5)
         self.assertEqual(parsed.lina_rating, 5)
