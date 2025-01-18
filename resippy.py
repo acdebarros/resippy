@@ -8,7 +8,7 @@ from datetime import date, datetime
 import re
 from tabulate import tabulate
 
-connection = sqlite3.connect('resippy.db')
+connection = sqlite3.connect('resippy_testing.db')
 cursor = connection.cursor()
 
 # Database Set-Up
@@ -124,7 +124,7 @@ def update_menu(args, **kwargs):
             updates["dish_type"] = '"{dish_type}"'.format(dish_type=updates['dish_type'])
         for update in updates.keys():
             updates_query += "{column}={new_value},".format(column=update, new_value=updates[update])
-            updates_query = updates_query[:-1]
+        updates_query = updates_query[:-1]
         condition_query = "id={recipe_id}".format(recipe_id=recipe_id)
         query = "UPDATE menu SET {updates} WHERE {condition}".format(updates=updates_query, condition=condition_query)
     # Add the new recipe to the database
