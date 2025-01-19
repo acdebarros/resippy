@@ -7,8 +7,9 @@ import atexit
 from datetime import date, datetime
 import re
 from tabulate import tabulate
+from sqlparse.tokens import Keyword, DML
 
-connection = sqlite3.connect('resippy_testing.db')
+connection = sqlite3.connect('resippy.db')
 cursor = connection.cursor()
 
 # Database Set-Up
@@ -75,11 +76,20 @@ def view_menu(args, **kwargs):
     Args:
         args(dict): Contains potential optional arguments --order, --limit, and/or --filter.
     """
+    # Set Up Query
+    sql_query = "SELECT * FROM menu"
     # Get Filter
     if args['filter'] != None:
-        cursor.execute(args['filter'])
-    else:
-        cursor.execute("SELECT * FROM menu")
+        sql_query += " WHERE "
+        sql_query += args['filter']
+    if args['order'] != None:
+        sql_query += " ORDER BY "
+        sql_query += args['order']
+    if args['limit'] != None:
+        sql_query += " LIMIT "
+        sql_query += args['limit']
+
+    cursor.execute(sql_query)
     menu = cursor.fetchall()
     
     # Print the headings
@@ -259,7 +269,88 @@ def check_filter(filter):
             if not date_correct:
                 raise argparse.ArgumentTypeError(message)
     
-    return sql_query.value
+    sql_query = sql_query.value
+    sql_query = sql_query.split("WHERE")
+    sql_query = sql_query[1].strip()
+
+    return sql_query
+
+def check_order(order):
+    """_summary_
+
+    Args:
+        order (str): A string that should contain a variable and then either ASC or DESC.
+
+    Returns:
+        sql_query: Order statement organized as an SQL query.
+    """
+    # Create & parse SQL query
+    query = "SELECT * FROM menu ORDER BY "
+    query += order
+    sql_query = sqlparse.parse(query)[0]
+    order_query = ""
+
+    # Get the ORDER BY part of the query
+    order_by_tokens = []
+    order_by_found = False
+
+    # Iterate through tokens to find ORDER BY and collect subsequent tokens
+    for token in sql_query.tokens:
+        if token.ttype is Keyword and token.value.upper() == "ORDER BY":
+            order_by_found = True
+            continue
+        if order_by_found:
+            # Stop collecting if we hit another keyword like LIMIT or OFFSET
+            if token.ttype is Keyword:
+                break
+            if not token.is_whitespace:
+                order_by_tokens.append(token.value)
+    
+    # Check validity of order_by statements
+    # Find valid variable names
+    cursor.execute("SELECT name FROM pragma_table_info('menu')")
+    retrieved_columns = cursor.fetchall()
+    valid_columns = []
+    for col in retrieved_columns:
+        valid_columns.append(col[0])    
+    for token in order_by_tokens:
+        tokens = token.split(",")
+        for order in tokens:
+            parts_of_query = order.split()
+            col_name = parts_of_query[0]
+            direction = parts_of_query[1]
+            # Check variable
+            if col_name not in valid_columns:
+                raise argparse.ArgumentTypeError("Invalid ORDER BY statement: the column {c} does not exist in the menu table.".format(c=col_name))
+            # Check direction
+            if direction not in ["ASC", "DESC"]:
+                raise argparse.ArgumentTypeError("Invalid ORDER BY statement: direction must be one of ASC or DESC.")
+            # Format for query
+            order_query += col_name 
+            order_query += " "
+            order_query += direction
+            order_query += ", "
+        
+    order_query = order_query[:-2]
+    return order_query
+
+def check_limit(limit):
+    """_summary_
+
+    Args:
+        limit (_type_): _description_
+
+    Returns:
+        _type_: _description_
+    """
+    try:
+        int(limit)
+    except ValueError:
+        raise argparse.ArgumentTypeError("Invalid limit: Limit must be an integer.")
+    if int(limit) < 1:
+        raise argparse.ArgumentTypeError("Invalid limit: Limit must be 1 or greater.")
+    
+    return limit
 
 # I/O Functions
 def create_parser():
@@ -278,6 +369,8 @@ def create_parser():
     parser.add_argument('--dish_type', type=str, help="Dish type (e.g., pasta, salad, potatoes).")
     parser.add_argument('--viewmenu', action="store_true", help="View the menu.")
     parser.add_argument('--filter', type=check_filter,  help="Filter you would like to use. Should be formatted as an SQL condition.")
+    parser.add_argument('--order', type=check_order, help="Variable you would like to order the table by (e.g., last_made), as well as ASC or DESC.")
+    parser.add_argument('--limit', type=check_limit, help="Number of recipes you would like to limit the output to.")
     group = parser.add_mutually_exclusive_group()
     group.add_argument('--new', help="Name of the recipe you would like to add to the menu")
     group.add_argument('--update_menu', help="Name of the recipe you would like to update in the menu")
