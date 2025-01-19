@@ -9,7 +9,7 @@ import re
 from tabulate import tabulate
 from sqlparse.tokens import Keyword, DML
 
-connection = sqlite3.connect('resippy.db')
+connection = sqlite3.connect('resippy_testing.db')
 cursor = connection.cursor()
 
 # Database Set-Up
@@ -23,6 +23,18 @@ def setup_database(cursor, connection):
     """
     # Make tables if they do not already exist
     cursor.execute('CREATE TABLE IF NOT EXISTS menu (id INTEGER PRIMARY KEY, name TEXT UNIQUE, dish_type TEXT, cuisine TEXT, drumlin_rating DECIMAL, ian_rating DECIMAL, lina_rating DECIMAL, last_made DATE)')
+    connection.commit()
+
+    cursor.execute('CREATE TABLE IF NOT EXISTS ingredients (ingredient_id INTEGER PRIMARY KEY, ingredient_name TEXT UNIQUE)')
+    connection.commit()
+    
+    cursor.execute('CREATE TABLE IF NOT EXISTS units (unit_id INTEGER PRIMARY KEY, unit_name TEXT UNIQUE)')
+    connection.commit()
+
+    cursor.execute('CREATE TABLE IF NOT EXISTS prepmethod (prepmethod_id INTEGER PRIMARY KEY, prepmethod_name TEXT UNIQUE)')
+    connection.commit()
+
+    cursor.execute('CREATE TABLE IF NOT EXISTS recipe_ingredients (matching_id INTEGER PRIMARY KEY, recipe_id INTEGER, ingredient_id INTEGER, quantity DECIMAL, unit_id INTEGER, prepmethod_id INTEGER, FOREIGN KEY (recipe_id) REFERENCES menu(id), FOREIGN KEY (ingredient_id) REFERENCES ingredients(ingredient_id), FOREIGN KEY (unit_id) REFERENCES units(unit_id), FOREIGN KEY (prepmethod_id) REFERENCES prepmethod(prepmethod_id))')
     connection.commit()
 
 # Menu Functions
