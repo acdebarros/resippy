@@ -1,12 +1,13 @@
 # resippy
 A CLI recipe app for the homehold.
 
-## Milestone 1
+## Milestone 2
 
 This update finalizes a version of resippy that works solely with the SQL "menu" table in the resippy.db database. It can:
-- Add new recipes to the menu, with additional ratings and 'last-made' date;
+- Add new recipes to the menu, with additional information on cuisine, dish type, ratings, and 'last-made' date;
 - Print out the whole menu into the console;
-- Update existing recipe values with different ratings and last-made dates;
+- Filters, orders, and limits the printed menu in the console using SQL queries;
+- Update existing recipe values with different dish types, cuisines, ratings, and last-made dates;
 - Delete recipes from the menu
 
 ### Usage
@@ -26,8 +27,18 @@ ian's rating of the recipe
 Lina's rating of the recipe
 --last_made LAST_MADE
 Date the recipe was last made (formatted as DD/MM/YYYY)
+--cuisine CUISINE
+Cuisine the dish is from (e.g., Mexican, Thai).
+--dish_type DISH_TYPE
+Dish type (e.g., pasta, salad, potatoes).
 --viewmenu
 View the menu (printed onto the console)
+--filter FILTER
+Filter you would like to use. Should be formatted as an SQL condition.
+--order ORDER
+Variable you would like to order the table by (e.g., last_made), as well as ASC or DESC.
+--limit LIMIT
+Number of recipes you would like to limit the output to.
 --new NEW
 Add a new recipe. Include the name of the recipe you would like to add.
 --update_menu UPDATE_MENU
@@ -39,8 +50,8 @@ Delete a recipe. Include the name of the recipe you would like to delete.
 
 In the next milestone, I hope to:
 
-- [x] Update the viewmenu option such that I can also filter the menu based on ratings or last-made dates;
-- [x] Update the viewmenu option such that I can organize the rows by rating or by last_made dates;
-- [ ] Limit the printed recipes to a certain number rather than printing the entire menu
-- [x] Add a "Dish Type" column to the menu table that includes options such as "Pasta", "Soup", "Salad", etc.
-- [x] Add a "Cuisine" column to the menu table that includes options such as "Mexican", "Thai", etc.
+- [ ] Create four new tables: 'recipe_ingredients", "ingredients", "units", and "prepmethod";
+- [ ] Add ingredients to these tables, connecting back to the menu using the recipe's id;
+- [ ] Update the ingredients in a recipe;
+- [ ] Print out all the ingredients for a given recipe
+- [ ] Add a "Cuisine" column to the menu table that includes options such as "Mexican", "Thai", etc.

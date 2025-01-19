@@ -97,10 +97,10 @@ Milestone 4: Recipes
 -------------------------
 By the end of this milestone, I will have a program that works with the "recipe_instructions" table. It can: add instructions for a recipe to the table from a text file.
 
-Milestone 6: Meal Planning
+Milestone 5: Meal Planning
 --------------------------
 By the end of this milestone, I will have a program that works with the "meal_plan" table. It can: add recipes to the meal plan, print out the meal plan for the next seven days.
 
-Milestone 7: Groceries
+Milestone 6: Groceries
 ----------------------
 By the end of this milestone, I will have a program that works with the "groceries" table. It can: add the required ingredients for that week's meal plan to the table. It should also remove any previous ingredients.

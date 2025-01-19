@@ -85,6 +85,10 @@ def view_menu(args, **kwargs):
     if args['order'] != None:
         sql_query += " ORDER BY "
         sql_query += args['order']
+    if args['limit'] != None:
+        sql_query += " LIMIT "
+        sql_query += args['limit']
+
     cursor.execute(sql_query)
     menu = cursor.fetchall()
     
@@ -330,6 +334,24 @@ def check_order(order):
     order_query = order_query[:-2]
     return order_query
 
+def check_limit(limit):
+    """_summary_
+
+    Args:
+        limit (_type_): _description_
+
+    Returns:
+        _type_: _description_
+    """
+    try:
+        int(limit)
+    except ValueError:
+        raise argparse.ArgumentTypeError("Invalid limit: Limit must be an integer.")
+    if int(limit) < 1:
+        raise argparse.ArgumentTypeError("Invalid limit: Limit must be 1 or greater.")
+    
+    return limit
+
 # I/O Functions
 def create_parser():
     """
@@ -348,6 +370,7 @@ def create_parser():
     parser.add_argument('--viewmenu', action="store_true", help="View the menu.")
     parser.add_argument('--filter', type=check_filter,  help="Filter you would like to use. Should be formatted as an SQL condition.")
     parser.add_argument('--order', type=check_order, help="Variable you would like to order the table by (e.g., last_made), as well as ASC or DESC.")
+    parser.add_argument('--limit', type=check_limit, help="Number of recipes you would like to limit the output to.")
     group = parser.add_mutually_exclusive_group()
     group.add_argument('--new', help="Name of the recipe you would like to add to the menu")
     group.add_argument('--update_menu', help="Name of the recipe you would like to update in the menu")
