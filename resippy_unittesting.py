@@ -4,11 +4,12 @@ import unittest
 from unittest.mock import patch, MagicMock
 import sqlite3
 import os
-from resippy import new_recipe, view_menu, setup_database, update_menu, check_date, create_parser, check_rating, check_filter
+from resippy import new_recipe, view_menu, setup_database, update_menu, check_date, create_parser, check_rating, check_filter, check_order
 import sys
 from io import StringIO
 import argparse
 from sqlparse.sql import Where, Comparison, Token
+from sqlparse.tokens import Keyword, Whitespace, Name, Punctuation
 
 # 3 tests
 class testDatabaseCreation(unittest.TestCase):
@@ -138,53 +139,32 @@ class testNewRecipe(unittest.TestCase):
         mock_cursor.execute.assert_called_once()
         mock_connection.commit.assert_not_called()
 
-# 4 tests
+# 5 tests
 class testViewMenu(unittest.TestCase):
     @patch('resippy.cursor')
     @patch('resippy.tabulate')
+
     def test_basic_functionality(self, mock_tabulate, mock_cursor):
-        mock_cursor.execute.return_value = None
         mock_cursor.fetchall.return_value = [('Spaghetti', 'Pasta', 'Italian', 5, 4, 3, '2023-01-01')]
         mock_cursor.description = [('name',), ('dish_type',), ('cuisine',), ('drumlin_rating',), ('ian_rating',), ('lina_rating',), ('last_made',)]
         
-        captured_output = StringIO()
-        sys.stdout = captured_output
-        
-        view_menu({'filter': None})
-        
-        sys.stdout = sys.__stdout__
-        
-        self.assertTrue(mock_cursor.execute.called)
-        self.assertTrue(mock_cursor.fetchall.called)
-        self.assertTrue(mock_tabulate.called)
-        self.assertIn('name', captured_output.getvalue())
+        view_menu({'filter': None, 'order': None})
+
+        mock_cursor.execute.assert_called_with("SELECT * FROM menu")
+        mock_cursor.fetchall.assert_called_once()
+        mock_tabulate.assert_called_once_with([('Spaghetti', 'Pasta', 'Italian', 5, 4, 3, '2023-01-01')], headers=['name', 'dish_type', 'cuisine', 'drumlin_rating', 'ian_rating', 'lina_rating', 'last_made'], tablefmt="grid", numalign='center')
 
     @patch('resippy.cursor')
     @patch('resippy.tabulate')
     def test_empty_table(self, mock_tabulate, mock_cursor):
-        mock_cursor.execute.return_value = None
         mock_cursor.fetchall.return_value = []
         mock_cursor.description = [('name',), ('dish_type',), ('cuisine',), ('drumlin_rating',), ('ian_rating',), ('lina_rating',), ('last_made',)]
         
-        view_menu({'filter': None})
+        view_menu({'filter': None, 'order': None})
         
+        mock_cursor.execute.assert_called_with("SELECT * FROM menu")
+        mock_cursor.fetchall.assert_called_once()
         mock_tabulate.assert_called_with([], headers=['name', 'dish_type', 'cuisine', 'drumlin_rating', 'ian_rating', 'lina_rating', 'last_made'], tablefmt="grid", numalign='center')
-
-    @patch('resippy.cursor')
-    @patch('resippy.tabulate')
-    def test_table_formatting(self, mock_tabulate, mock_cursor):
-        mock_cursor.execute.return_value = None
-        mock_cursor.fetchall.return_value = [('Spaghetti', 'Pasta', 'Italian', 5, 4, 3, '2023-01-01')]
-        mock_cursor.description = [('name',), ('dish_type',), ('cuisine',), ('drumlin_rating',), ('ian_rating',), ('lina_rating',), ('last_made',)]
-        
-        view_menu({'filter': None})
-        
-        mock_tabulate.assert_called_with(
-            [('Spaghetti', 'Pasta', 'Italian', 5, 4, 3, '2023-01-01')],
-            headers=['name', 'dish_type', 'cuisine', 'drumlin_rating', 'ian_rating', 'lina_rating', 'last_made'],
-            tablefmt="grid",
-            numalign='center'
-        )
 
     @patch('resippy.cursor')
     @patch('resippy.tabulate')    
@@ -192,16 +172,55 @@ class testViewMenu(unittest.TestCase):
         mock_cursor.execute.return_value = None
         mock_cursor.fetchall.return_value = [('Pizza', 'Pizza', 'Italian', 5, 4, 3, '2023-01-01'), ('Burger', 'Burger', 'American', 5, 4, 3, '2024-01-01')]
         mock_cursor.description = [('name',), ('dish_type',), ('cuisine',), ('drumlin_rating',), ('ian_rating',), ('lina_rating',), ('last_made',)]
-        args = {'filter': 'SELECT * FROM menu WHERE drumlin_rating = 5'}
+        args = {'filter': 'drumlin_rating = 5', 'order': None}
         
         view_menu(args)
         
+        mock_cursor.execute.assert_called_with("SELECT * FROM menu WHERE drumlin_rating = 5")
+        mock_cursor.fetchall.assert_called_once()
         mock_tabulate.assert_called_with(
             [('Pizza', 'Pizza', 'Italian', 5, 4, 3, '2023-01-01'), ('Burger', 'Burger', 'American', 5, 4, 3, '2024-01-01')],
             headers=['name', 'dish_type', 'cuisine', 'drumlin_rating', 'ian_rating', 'lina_rating', 'last_made'],
             tablefmt="grid",
             numalign='center'
         )
+
+    @patch('resippy.cursor')
+    @patch('resippy.tabulate')    
+    def test_ordered_table(self, mock_tabulate, mock_cursor):
+        mock_cursor.execute.return_value = None
+        mock_cursor.fetchall.return_value = [('Pizza', 'Pizza', 'Italian', 3, 4, 3, '2023-01-01'), ('Burger', 'Burger', 'American', 5, 4, 3, '2024-01-01')]
+        mock_cursor.description = [('name',), ('dish_type',), ('cuisine',), ('drumlin_rating',), ('ian_rating',), ('lina_rating',), ('last_made',)]
+        args = {'filter': None, 'order': 'drumlin_rating DESC'}
+        
+        view_menu(args)
+        
+        mock_cursor.execute.assert_called_with("SELECT * FROM menu ORDER BY drumlin_rating DESC")
+        mock_cursor.fetchall.assert_called_once()
+        mock_tabulate.assert_called_with(
+            [('Pizza', 'Pizza', 'Italian', 3, 4, 3, '2023-01-01'), ('Burger', 'Burger', 'American', 5, 4, 3, '2024-01-01')],
+            headers=['name', 'dish_type', 'cuisine', 'drumlin_rating', 'ian_rating', 'lina_rating', 'last_made'],
+            tablefmt="grid",
+            numalign='center'
+        )
+    
+    @patch('resippy.cursor')
+    @patch('resippy.tabulate')
+    def test_filtered_ordered_table(self, mock_tabulate, mock_cursor):
+        mock_cursor.fetchall.return_value = [('Pizza', 'Pizza', 'Italian', 3, 4, 3, '2023-01-01'), ('Burger', 'Burger', 'American', 5, 4, 3, '2024-01-01')]
+        mock_cursor.description = [('name',), ('dish_type',), ('cuisine',), ('drumlin_rating',), ('ian_rating',), ('lina_rating',), ('last_made',)]
+        args = {'filter': 'drumlin_rating > 5', 'order': 'drumlin_rating DESC'}
+
+        view_menu(args)
+
+        mock_cursor.execute.assert_called_with('SELECT * FROM menu WHERE drumlin_rating > 5 ORDER BY drumlin_rating DESC')
+        mock_tabulate.assert_called_with(
+            [('Pizza', 'Pizza', 'Italian', 3, 4, 3, '2023-01-01'), ('Burger', 'Burger', 'American', 5, 4, 3, '2024-01-01')],
+            headers=['name', 'dish_type', 'cuisine', 'drumlin_rating', 'ian_rating', 'lina_rating', 'last_made'],
+            tablefmt="grid",
+            numalign='center'
+        )
+
 # 8 tests
 class testUpdateMenu(unittest.TestCase):
     @patch('resippy.connection')
@@ -355,8 +374,7 @@ class testCheckFilter(unittest.TestCase):
         mock_cursor.fetchall.return_value = [('name',), ('drumlin_rating',), ('lina_rating',), ('ian_rating',), ('last_made',)]
         filter_condition = "drumlin_rating = 5"
         result = check_filter(filter_condition)
-        print(result)
-        self.assertIn("SELECT * FROM menu WHERE drumlin_rating = 5", result)
+        self.assertEqual("drumlin_rating = 5", result)
 
     @patch('resippy.cursor')
     @patch('sqlparse.parse')
@@ -435,6 +453,146 @@ class testCheckFilter(unittest.TestCase):
             check_filter(filter_condition)
         self.assertEqual(str(context.exception), "Incorrect date format for last-made date. Make sure to enter date as DD/MM/YYYY.")
 
+# 5 tests
+class testCheckOrder(unittest.TestCase):
+    @patch('resippy.cursor')
+    @patch('sqlparse.parse')
+    def test_one_good_order(self, mock_sqlparse, mock_cursor):
+        # Create mock tokens
+        mock_tokens = [
+            Token(Keyword, 'SELECT'),
+            Token(Whitespace, ' '),
+            Token(Name, '*'),
+            Token(Whitespace, ' '),
+            Token(Keyword, 'FROM'),
+            Token(Whitespace, ' '),
+            Token(Name, 'menu'),
+            Token(Whitespace, ' '),
+            Token(Keyword, 'ORDER BY'),
+            Token(Whitespace, ' '),
+            Token(Name, 'drumlin_rating ASC'),
+        ]
+        mock_sql_query = MagicMock()
+        mock_sql_query.tokens = mock_tokens
+        mock_sql_query.value = "SELECT * FROM menu ORDER BY drumlin_rating ASC"
+        mock_sqlparse.return_value = [mock_sql_query]
+        # Mocking cursor behavior for valid columns
+        mock_cursor.fetchall.return_value = [('name',), ('drumlin_rating',), ('lina_rating',), ('ian_rating',), ('last_made',)]
+        order_condition = "drumlin_rating ASC"
+        result = check_order(order_condition)
+        self.assertEqual("drumlin_rating ASC", result)
+
+    @patch('resippy.cursor')
+    @patch('sqlparse.parse')
+    def test_two_good_orders(self, mock_sqlparse, mock_cursor):
+        # Create mock tokens
+        mock_tokens = [
+            Token(Keyword, 'SELECT'),
+            Token(Whitespace, ' '),
+            Token(Name, '*'),
+            Token(Whitespace, ' '),
+            Token(Keyword, 'FROM'),
+            Token(Whitespace, ' '),
+            Token(Name, 'menu'),
+            Token(Whitespace, ' '),
+            Token(Keyword, 'ORDER BY'),
+            Token(Whitespace, ' '),
+            Token(Name, 'drumlin_rating ASC, ian_rating DESC'),
+        ]
+        mock_sql_query = MagicMock()
+        mock_sql_query.tokens = mock_tokens
+        mock_sql_query.value = "SELECT * FROM menu ORDER BY drumlin_rating ASC, ian_rating DESC"
+        mock_sqlparse.return_value = [mock_sql_query]
+        # Mocking cursor behavior for valid columns
+        mock_cursor.fetchall.return_value = [('name',), ('drumlin_rating',), ('lina_rating',), ('ian_rating',), ('last_made',)]
+        order_condition = "drumlin_rating ASC, ian_rating DESC"
+        result = check_order(order_condition)
+        self.assertEqual("drumlin_rating ASC, ian_rating DESC", result)
+
+    @patch('resippy.cursor')
+    @patch('sqlparse.parse')
+    def test_one_bad_var_order(self, mock_sqlparse, mock_cursor):
+        # Create mock tokens
+        mock_tokens = [
+            Token(Keyword, 'SELECT'),
+            Token(Whitespace, ' '),
+            Token(Name, '*'),
+            Token(Whitespace, ' '),
+            Token(Keyword, 'FROM'),
+            Token(Whitespace, ' '),
+            Token(Name, 'menu'),
+            Token(Whitespace, ' '),
+            Token(Keyword, 'ORDER BY'),
+            Token(Whitespace, ' '),
+            Token(Name, 'bianca_rating ASC'),
+        ]
+        mock_sql_query = MagicMock()
+        mock_sql_query.tokens = mock_tokens
+        mock_sql_query.value = "SELECT * FROM menu ORDER BY bianca_rating ASC"
+        mock_sqlparse.return_value = [mock_sql_query]
+        # Mocking cursor behavior for valid columns
+        mock_cursor.fetchall.return_value = [('name',), ('drumlin_rating',), ('lina_rating',), ('ian_rating',), ('last_made',)]
+        order_condition = "bianca_rating ASC"
+        with self.assertRaises(argparse.ArgumentTypeError) as context:
+            check_order(order_condition)
+        self.assertEqual(str(context.exception), "Invalid ORDER BY statement: the column bianca_rating does not exist in the menu table.")
+    
+    @patch('resippy.cursor')
+    @patch('sqlparse.parse')
+    def test_one_bad_val_order(self, mock_sqlparse, mock_cursor):
+        # Create mock tokens
+        mock_tokens = [
+            Token(Keyword, 'SELECT'),
+            Token(Whitespace, ' '),
+            Token(Name, '*'),
+            Token(Whitespace, ' '),
+            Token(Keyword, 'FROM'),
+            Token(Whitespace, ' '),
+            Token(Name, 'menu'),
+            Token(Whitespace, ' '),
+            Token(Keyword, 'ORDER BY'),
+            Token(Whitespace, ' '),
+            Token(Name, 'drumlin_rating FUCK'),
+        ]
+        mock_sql_query = MagicMock()
+        mock_sql_query.tokens = mock_tokens
+        mock_sql_query.value = "SELECT * FROM menu ORDER BY drumlin_rating FUCK"
+        mock_sqlparse.return_value = [mock_sql_query]
+        # Mocking cursor behavior for valid columns
+        mock_cursor.fetchall.return_value = [('name',), ('drumlin_rating',), ('lina_rating',), ('ian_rating',), ('last_made',)]
+        order_condition = "drumlin_rating FUCK"
+        with self.assertRaises(argparse.ArgumentTypeError) as context:
+            check_order(order_condition)
+        self.assertEqual(str(context.exception), "Invalid ORDER BY statement: direction must be one of ASC or DESC.")
+    @patch('resippy.cursor')
+    @patch('sqlparse.parse')
+
+    def test_one_good_one_bad(self, mock_sqlparse, mock_cursor):
+        # Create mock tokens
+        mock_tokens = [
+            Token(Keyword, 'SELECT'),
+            Token(Whitespace, ' '),
+            Token(Name, '*'),
+            Token(Whitespace, ' '),
+            Token(Keyword, 'FROM'),
+            Token(Whitespace, ' '),
+            Token(Name, 'menu'),
+            Token(Whitespace, ' '),
+            Token(Keyword, 'ORDER BY'),
+            Token(Whitespace, ' '),
+            Token(Name, 'drumlin_rating ASC, ian_rating FUCK'),
+        ]
+        mock_sql_query = MagicMock()
+        mock_sql_query.tokens = mock_tokens
+        mock_sql_query.value = "SELECT * FROM menu ORDER BY drumlin_rating ASC, ian_rating FUCK"
+        mock_sqlparse.return_value = [mock_sql_query]
+        # Mocking cursor behavior for valid columns
+        mock_cursor.fetchall.return_value = [('name',), ('drumlin_rating',), ('lina_rating',), ('ian_rating',), ('last_made',)]
+        order_condition = "drumlin_rating ASC, ian_rating FUCK"
+        with self.assertRaises(argparse.ArgumentTypeError) as context:
+            check_order(order_condition)
+        self.assertEqual(str(context.exception), "Invalid ORDER BY statement: direction must be one of ASC or DESC.")
+
 # 4 tests
 class testCreateParser(unittest.TestCase):
     def setUp(self):
@@ -449,7 +607,7 @@ class testCreateParser(unittest.TestCase):
         self.assertEqual(parsed.ian_rating, 5)
         self.assertEqual(parsed.lina_rating, 5)
         self.assertEqual(parsed.last_made, "2019")
-        self.assertEqual(parsed.filter, "SELECT * FROM menu WHERE drumlin_rating = 5")
+        self.assertEqual(parsed.filter, "drumlin_rating = 5")
         self.assertTrue(parsed.viewmenu)
 
     def test_parser_mutually_exclusive(self):
