@@ -50,7 +50,7 @@ Delete a recipe. Include the name of the recipe you would like to delete.
 
 In the next milestone, I hope to:
 
-- [ ] Create four new tables: 'recipe_ingredients", "ingredients", "units", and "prepmethod";
+- [x] Create four new tables: 'recipe_ingredients", "ingredients", "units", and "prepmethod";
 - [ ] Add ingredients to these tables, connecting back to the menu using the recipe's id;
 - [ ] Update the ingredients in a recipe;
 - [ ] Print out all the ingredients for a given recipe
