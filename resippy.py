@@ -10,7 +10,7 @@ from tabulate import tabulate
 from sqlparse.tokens import Keyword
 import csv
 
-connection = sqlite3.connect('resippy_testing.db')
+connection = sqlite3.connect('resippy.db')
 cursor = connection.cursor()
 
 # Database Set-Up
@@ -61,6 +61,8 @@ def new_recipe(args, **kwargs):
         recipe_data_template = ["new", "dish_type", "cuisine", "drumlin_rating", "lina_rating", "ian_rating", "last_made"]
         recipe_information = {k:v for k,v in args.items() if v is not None and k in recipe_data_template}
         recipe_information['name'] = recipe_information.pop('new')
+        recipe_name = recipe_information['name']
+        recipe_information['name'] = recipe_information['name'].lower().title()
         if 'last_made' in recipe_information:
             valid, e, recipe_information['last_made'] = check_date(recipe_information['last_made'])
             if not valid:
@@ -72,7 +74,7 @@ def new_recipe(args, **kwargs):
         try:
             cursor.execute(query, list(recipe_information.values()))
         except sqlite3.IntegrityError:
-            return False, "{} is already in the homehold menu. If you would like to update this recipe, use --update_menu instead.".format(recipe_information['name'])
+            return False, "{} is already in the homehold menu. If you would like to update this recipe, use --update_menu instead.".format(recipe_name)
         connection.commit()
         return True, ''
     except KeyError:
@@ -123,12 +125,14 @@ def update_menu(args, **kwargs):
     try:
         if args['update_menu'] == None:
             return False, "Recipe name missing!"
+        recipe_name = args['update_menu']
+        args['update_menu'] = args['update_menu'].lower().title()
         cursor.execute("SELECT id FROM menu WHERE name=?", (args['update_menu'],))
         recipe_id = cursor.fetchall()
         if len(recipe_id) == 1:
             recipe_id = recipe_id[0][0]
         else:
-            return False, "{} was not found in the menu. If you would like to add it, please use --new.".format(args['update_menu'])
+            return False, "{} was not found in the menu. If you would like to add it, please use --new.".format(recipe_name)
         # Find new updates from args
         potential_arguments = ["dish_type", "cuisine", "drumlin_rating", "lina_rating", "ian_rating", "last_made"]
         updates = {k:v for k, v in args.items() if v is not None and k in potential_arguments}
@@ -168,7 +172,7 @@ def delete_recipe(args, **kwargs):
         False and an error string if the recipe was not found in the menu
     """
     # Get Recipe ID
-    cursor.execute("SELECT id FROM menu WHERE name=?", (args['del_recipe'],))
+    cursor.execute("SELECT id FROM menu WHERE name=?", (args['del_recipe'].lower().title(),))
     recipe_id = cursor.fetchall()
     if len(recipe_id) == 1:
         recipe_id = recipe_id[0][0]
@@ -197,7 +201,7 @@ def add_recipe(args, recipe_id, **kwargs):
     # get path & recipe name
     try:
         path = args['addrecipe'][1]
-        recipe_name = args['addrecipe'][0]
+        recipe_name = args['addrecipe'][0].lower().title()
         assert recipe_name != ''
         assert path != ''
     except IndexError:
@@ -208,13 +212,13 @@ def add_recipe(args, recipe_id, **kwargs):
     check_existing_query = "SELECT * FROM recipe_ingredients WHERE recipe_id=?"
     cursor.execute(check_existing_query, (recipe_id,))
     if len(cursor.fetchall()) > 0:
-        readd = input("A recipe for {r} is already in the database. Would you like to replace it? [Y/N] ".format(r=recipe_name))
+        readd = input("A recipe for {r} is already in the database. Would you like to replace it? [Y/N] ".format(r=args['addrecipe'][0]))
         if readd.upper() == "Y":
             remove_recipe_query = "DELETE FROM recipe_ingredients WHERE recipe_id=?"
             cursor.execute(remove_recipe_query, (recipe_id,))
             connection.commit()
         else:
-            return False, "The recipe for {} already exists in the database. It has not been altered.".format(recipe_name)
+            return False, "The recipe for {} already exists in the database. It has not been altered.".format(args['addrecipe'][0])
     # Open the .csv
     try:
         with open(path, newline='') as csvfile:
@@ -230,13 +234,13 @@ def add_recipe(args, recipe_id, **kwargs):
                     ing_query = "SELECT ingredient_id FROM ingredients WHERE ingredient_name=?"
                     while ing_id == None:
                         try:
-                            cursor.execute(ing_query, (ingredient[0],))
+                            cursor.execute(ing_query, (ingredient[0].lower().title(),))
                             ingredient_information["ingredient_id"] = cursor.fetchall()[0][0]
                             ing_id = True
                         except IndexError:
                             # Ingredient does not exist in table: create it
                             ing_make_query = "INSERT INTO ingredients (ingredient_name) VALUES (?)"
-                            cursor.execute(ing_make_query, (ingredient[0],))
+                            cursor.execute(ing_make_query, (ingredient[0].lower().title(),))
                             connection.commit()
                 else:
                     return False, "One or more of the ingredients is missing a name. Please check the .csv file and then try again."
@@ -250,25 +254,25 @@ def add_recipe(args, recipe_id, **kwargs):
                     unit_query = "SELECT unit_id FROM units WHERE unit_name=?"
                     while unit_id == None:
                         try:
-                            cursor.execute(unit_query, (ingredient[2],))
+                            cursor.execute(unit_query, (ingredient[2].lower().title(),))
                             ingredient_information["unit_id"] = cursor.fetchall()[0][0]
                             unit_id = True
                         except IndexError:
                             # Unit does not exist in table: create it
                             unit_make_query = "INSERT INTO units (unit_name) VALUES (?)"
-                            cursor.execute(unit_make_query, (ingredient[2],))
+                            cursor.execute(unit_make_query, (ingredient[2].lower().title(),))
                             connection.commit()
                 # Get prepmethod ID
                 if ingredient[3] != "":
                     prep_query = "SELECT prepmethod_id FROM prepmethod WHERE prepmethod_name=?"
                     while prep_id == None:
                         try:
-                            cursor.execute(prep_query, (ingredient[3],))
+                            cursor.execute(prep_query, (ingredient[3].lower().title(),))
                             ingredient_information['prepmethod_id'] = cursor.fetchall()[0][0]
                             prep_id = True
                         except IndexError:
                             prep_make_query = "INSERT INTO prepmethod (prepmethod_name) VALUES (?)"
-                            cursor.execute(prep_make_query, (ingredient[3],))
+                            cursor.execute(prep_make_query, (ingredient[3].lower().title(),))
                             connection.commit()
                 # Make a line in the recipe_ingredients table
                 columns = ", ".join(ingredient_information.keys())
@@ -282,6 +286,57 @@ def add_recipe(args, recipe_id, **kwargs):
         return False, "Error: The file containing the recipe could not be read. Please fix the file and try again."
     return True, ""
 
+def print_recipe(args, **kwargs):
+    """Prints the recipe onto the console. For now, only prints ingredients.
+
+    Args:
+        args (dict): Contains --printrecipe, which contains the recipe name.
+    """
+    # Check that the recipe exists in the menu
+    sql_query = "SELECT id FROM menu WHERE name=?"
+    cursor.execute(sql_query, (args['printrecipe'].lower().title(),))
+    try:
+        id = cursor.fetchall()[0][0]
+    except IndexError:
+        raise argparse.ArgumentTypeError("Error: The recipe {r} does not exist in the menu. Please use --new to add it to the menu before adding its ingredients.".format(r=args['printrecipe']))
+    # Collect ingredients
+    find_ingredients_query = "SELECT * FROM recipe_ingredients WHERE recipe_id=?"
+    cursor.execute(find_ingredients_query, (id,))
+    ingredients = cursor.fetchall()
+    if len(ingredients) > 0:
+        ingredients_print_list = []
+        for ingredient in ingredients:
+            formatted_ingredient = "    • "
+            # Add quantity
+            formatted_ingredient += str(ingredient[3]) + " "
+            # Add units, if applicable
+            if ingredient[4] != None:
+                find_unit_name_query = "SELECT unit_name FROM units WHERE unit_id=?"
+                cursor.execute(find_unit_name_query, (ingredient[4],))
+                unit_name = cursor.fetchall()[0][0]
+                formatted_ingredient += unit_name + " "
+            # Add ingredient name
+            find_ing_name_query = "SELECT ingredient_name FROM ingredients WHERE ingredient_id=?"
+            cursor.execute(find_ing_name_query, (ingredient[2],))
+            ing_name = cursor.fetchall()[0][0]
+            formatted_ingredient += ing_name
+            # Add ingredient prepmethod, if applicable
+            if ingredient[5] != None:
+                find_prep_name_query = "SELECT prepmethod_name FROM prepmethod WHERE prepmethod_id=?"
+                cursor.execute(find_prep_name_query, (ingredient[5],))
+                prep_name = cursor.fetchall()[0][0]
+                formatted_ingredient += ", " + prep_name
+            # Add to list
+            ingredients_print_list.append(formatted_ingredient)
+    else:
+        raise argparse.ArgumentTypeError("The recipe for {} has not been added to the database. Please do so before trying again.".format(args['printrecipe']))
+    # Collect instructions (Milestone 4)
+    # Print off recipe
+    print("RECIPE: {r}".format(r=args['printrecipe']))
+    print("INGREDIENTS:")
+    for ing in ingredients_print_list:
+        print(ing)
+    
 # Helper Functions
 def check_date(input_date):
     """Ensures that a last_made argument date is in the correct format. Also reformats it.
@@ -526,6 +581,7 @@ def create_parser():
     parser.add_argument('--filter', type=check_filter,  help="Filter you would like to use. Should be formatted as an SQL condition.", metavar="FILTER")
     parser.add_argument('--order', type=check_order, help="Variable you would like to order the table by (e.g., last_made), as well as ASC or DESC.", metavar="ORDERBY")
     parser.add_argument('--limit', type=check_limit, help="Number of recipes you would like to limit the output to.")
+    parser.add_argument('--printrecipe', type=str, help="Name of the recipe you would like to see printed.", metavar="RECIPENAME")
     menu_exclusives = parser.add_mutually_exclusive_group()
     menu_exclusives.add_argument('--new', help="Name of the recipe you would like to add to the menu", metavar="RECIPENAME")
     menu_exclusives.add_argument('--update_menu', help="Name of the recipe you would like to update in the menu", metavar="RECIPENAME")
@@ -590,3 +646,5 @@ if __name__ == "__main__":
             print("The recipe for {} has been added to the homehold menu!".format(args.addrecipe[0]))
         else:
             print("An error has occurred. Please try again. \nError Information: {error}".format(error=error))
+    if args.printrecipe:
+        print_recipe(vars(args))
