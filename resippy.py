@@ -9,7 +9,7 @@ import re
 from tabulate import tabulate
 from sqlparse.tokens import Keyword, DML
 
-connection = sqlite3.connect('resippy_testing.db')
+connection = sqlite3.connect('resippy.db')
 cursor = connection.cursor()
 
 # Database Set-Up
