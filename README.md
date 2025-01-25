@@ -1,14 +1,12 @@
 # resippy
 A CLI recipe app for the homehold.
 
-## Milestone 3
+## Milestone 4
 
-This update finalizes a version of resippy that works with the menu, recipe_ingredients, ingredients, units, and prepmethod tables of the resippy database. It can:
-- Add full ingredient lists to the database, connecting back to the menu using the recipe's id;
-- Update the ingredients in the recipe using the same addrecipe function;
-- Print out the ingredients for a given recipe
-
-I have also updated the program so that it automatically converts everything to title case, so the input is no longer case-sensitive.
+This update finalizes a version of resippy that works with the menu, recipe_ingredients, ingredients, units, prepmethod, and instructions tables of the resippy database. It can:
+- Add instructions to the database, connecting back to the menu using the recipe's id;
+- Update the instructions in the recipe using the same addinstructions function;
+- Print out the ingredients and instructions for a given recipe
 
 ### Usage
 
@@ -30,7 +28,7 @@ Cuisine the dish is from (e.g., Mexican, Thai).
 --dish_type DISH_TYPE
 Dish type (e.g., pasta, salad, potatoes).
 --viewmenu
-View the menu (printed onto the console)
+View the menu (printed onto the console).
 --filter FILTER
 Filter you would like to use. Should be formatted as an SQL condition.
 --order ORDERBY
@@ -45,13 +43,16 @@ Add a new recipe. Include the name of the recipe you would like to add.
 Update a recipe. Include the name of the recipe you would like to update.
 --del_recipe RECIPENAME
 Delete a recipe. Include the name of the recipe you would like to delete.
---addrecipe RECIPENAME CSVPATH
+--addingredients RECIPENAME CSVPATH
 Add the ingredients for a recipe. Include the name of the dish and path to the .csv file containing the recipe. Recipe should be formatted with columns 'ingredient', 'quantity', 'units', and 'prepmethod'.
+--addinstructions RECIPENAME TXTPATH
+Add the instructions for a recipe. Include the name of the dish and path to the .txt file containing the recipe. Each instruction should be on a new line.
+--rating
+View the rating system (printed onto the console).
 
 ### Next Steps
 
 In the next milestone, I hope to:
 
-- [X] Create a new "instructions" table that can store the instructions for recipes;
-- [x] Print the recipe's instructions along with the ingredients in printrecipe;
-- [ ] Print the rating system onto the console
+- [X] Create a new "meal plan" table that can store a meal plan for the next seven days;
+- [x] Print the meal plan for the next seven days
