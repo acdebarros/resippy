@@ -53,5 +53,5 @@ Add the ingredients for a recipe. Include the name of the dish and path to the .
 In the next milestone, I hope to:
 
 - [X] Create a new "instructions" table that can store the instructions for recipes;
-- [ ] Print the recipe's instructions along with the ingredients in printrecipe;
+- [x] Print the recipe's instructions along with the ingredients in printrecipe;
 - [ ] Print the rating system onto the console

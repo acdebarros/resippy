@@ -336,12 +336,24 @@ def print_recipe(args, **kwargs):
             ingredients_print_list.append(formatted_ingredient)
     else:
         raise argparse.ArgumentTypeError("The recipe for {} has not been added to the database. Please do so before trying again.".format(args['printrecipe']))
-    # Collect instructions (Milestone 4)
+    # Collect instructions 
+    find_instructions_query = "SELECT * FROM instructions WHERE recipe_id=?"
+    cursor.execute(find_instructions_query, (id,))
+    instructions = cursor.fetchall()
+    instruction_list = []
+    if len(instructions) > 0:
+        for instruction in instructions:
+            formatted_instruction = str(instruction[2])
+            instruction_list.append(formatted_instruction)
     # Print off recipe
     print("RECIPE: {r}".format(r=args['printrecipe']))
     print("INGREDIENTS:")
     for ing in ingredients_print_list:
         print(ing)
+    if len(instruction_list) > 0:
+        print("INSTRUCTIONS:")
+        for instruction in instruction_list:
+            print(instruction)
     
 def add_instructions(args, recipe_id, **kwargs):
     """
