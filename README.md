@@ -55,4 +55,4 @@ View the rating system (printed onto the console).
 In the next milestone, I hope to:
 
 - [X] Create a new "meal plan" table that can store a meal plan for the next seven days;
-- [x] Print the meal plan for the next seven days
+- [ ] Print the meal plan for the next seven days
