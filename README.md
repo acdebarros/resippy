@@ -57,4 +57,5 @@ View the existing meal plan.
 
 In the next milestone, I hope to:
 
-- [X] Create a new "groceries" function that generates, prints, and saves a grocery list based on what's on the meal plan
+- [ ] Create a new "groceries" function that generates, prints, and saves a grocery list based on what's on the meal plan;
+- [ ] Add a "random" function that prints out a random recipe and can work with the filter input as well.
