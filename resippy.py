@@ -515,6 +515,49 @@ def add_mealplan(weekday, recipe_id, **kwargs):
     connection.commit()
     return True, ""
 
+def print_mealplan(**kwargs):
+    """Prints the meal plan to the console.
+
+    Returns:
+        _type_: _description_
+    """
+    
+    sql_query = "SELECT * FROM mealplan"
+    cursor.execute(sql_query)
+    mealplan = cursor.fetchall()
+    mealplan_with_recipes = []
+    # Get Recipes
+    for day in mealplan:
+        recipe_id = day[2]
+        if recipe_id != None:
+            cursor.execute("SELECT name FROM menu WHERE id=?", (recipe_id,))
+            recipe_name = cursor.fetchall()
+            recipe_name = str(recipe_name[0][0])
+            day_mealplan = [day[0], safe_str(day[1]), recipe_name]
+            mealplan_with_recipes.append(day_mealplan)
+        elif day[1] != None:
+            # Since we're here ,we might as well fix the mealplan and remove the date if a recipe is not attached to it
+            cursor.execute("UPDATE mealplan SET date=NULL WHERE day=?", (day[0],))
+            connection.commit()
+            # If there's no recipe, don't print it in the mealplan.
+
+    # If meal plan is empty:
+    if len(mealplan_with_recipes) == 0:
+        print("The meal plan is empty. Please add recipes before printing it :)")
+        return
+
+    # Sort output
+    mealplan_with_recipes.sort(key=lambda x: datetime.strptime(x[1], "%Y-%m-%d"))
+
+    # Get Column Width
+    console_width = shutil.get_terminal_size().columns
+
+    # Print the headings
+    headers = ["Weekday", "Date", "Recipe"]
+    num_columns = len(headers)
+    max_col_width = (console_width - (num_columns+1)) // num_columns
+    print(tabulate(mealplan_with_recipes, headers=headers, tablefmt="grid", numalign='center', maxcolwidths=[max_col_width] * num_columns))
+
 # Helper Functions
 def check_date(input_date):
     """Ensures that a last_made argument date is in the correct format. Also reformats it.
@@ -804,6 +847,17 @@ def check_mealplan_input(mealplan_args):
 
     return weekday, id
 
+def safe_str(value):
+    """Sets a value to an empty string if it is None.
+
+    Args:
+        value (_type_): Either a string or "None".
+
+    Returns:
+        A string (either the value or an empty string)
+    """
+    return str(value) if value is not None else ''
+    
 # I/O Functions
 def create_parser():
     """
@@ -828,6 +882,7 @@ def create_parser():
     parser.add_argument('--addinstructions', nargs=2, type=str, help="Name of the dish and path to the .txt file containing the instructions. Each instruction should be on a new line.", metavar=('RECIPENAME', 'TXTPATH'))
     parser.add_argument('--rating', action="store_true", help="View the rating system.")
     parser.add_argument('--addtomealplan', nargs=2, type=str, help="Day of the week and the recipe you would like to add to the meal plan.", metavar=('WEEKDAY','RECIPENAME'))
+    parser.add_argument('--printmealplan', action="store_true", help="View the existing meal plan.")
     menu_exclusives = parser.add_mutually_exclusive_group()
     menu_exclusives.add_argument('--new', help="Name of the recipe you would like to add to the menu", metavar="RECIPENAME")
     menu_exclusives.add_argument('--update_menu', help="Name of the recipe you would like to update in the menu", metavar="RECIPENAME")
@@ -860,6 +915,7 @@ if __name__ == "__main__":
     ## View Menu
     if args.viewmenu:
         view_menu(vars(args))
+    ## View ratings
     if args.rating:
         print('RATING SYSTEM:')
         print('5. This Slaps')
@@ -890,7 +946,7 @@ if __name__ == "__main__":
                 deleted = True
             else:
                 confirm = input("Unrecognized argument. Please enter Y or N. \n{} will be permanently deleted from the homehold menu. Are you sure you would like to continue? [Y/N]  ".format(args.del_recipe))
-    # Add a recipe (ingredients)
+    ## Add a recipe (ingredients)
     if args.addingredients:
         recipe_id, recipe_path = check_ingredients_input(args.addingredients)
         added, error = add_ingredients(vars(args), recipe_id)
@@ -898,7 +954,7 @@ if __name__ == "__main__":
             print("The recipe for {} has been added to the homehold menu!".format(args.addingredients[0]))
         else:
             print("An error has occurred. Please try again. \nError Information: {}".format(error))
-    # Add a recipe (instructions)
+    ## Add a recipe (instructions)
     if args.addinstructions:
         recipe_id, instructions_path = check_instructions_input(args.addinstructions)
         added, error = add_instructions(vars(args), recipe_id)
@@ -906,10 +962,15 @@ if __name__ == "__main__":
             print("The instructions for {} have been added to the homehold menu!".format(args.addinstructions[0]))
         else:
             print('An error has occurred. Please try again. \nError Information: {}'.format(error))
+    ## Print a recipe
     if args.printrecipe:
         print_recipe(vars(args))
+    ## Add to the meal plan
     if args.addtomealplan:
         weekday, recipe_id = check_mealplan_input(args.addtomealplan)
         added, error = add_mealplan(weekday, recipe_id)
         if added:
             print("{r} has been added to the mealplan for next {w}".format(r=args.addtomealplan[1], w=weekday.lower().title()))
+    ## Print the meal plan
+    if args.printmealplan:
+        print_mealplan()
