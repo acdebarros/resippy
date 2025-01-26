@@ -3,10 +3,9 @@ A CLI recipe app for the homehold.
 
 ## Milestone 4
 
-This update finalizes a version of resippy that works with the menu, recipe_ingredients, ingredients, units, prepmethod, and instructions tables of the resippy database. It can:
-- Add instructions to the database, connecting back to the menu using the recipe's id;
-- Update the instructions in the recipe using the same addinstructions function;
-- Print out the ingredients and instructions for a given recipe
+This update finalizes a version of resippy that works with the mealplan table of the resippy database. It can:
+- Add recipes to the mealplan;
+- Print the mealplan
 
 ### Usage
 
@@ -49,10 +48,13 @@ Add the ingredients for a recipe. Include the name of the dish and path to the .
 Add the instructions for a recipe. Include the name of the dish and path to the .txt file containing the recipe. Each instruction should be on a new line.
 --rating
 View the rating system (printed onto the console).
+--addtomealplan WEEKDAY RECIPENAME
+Day of the week and the recipe you would like to add to the meal plan.
+--printmealplan       
+View the existing meal plan.
 
 ### Next Steps
 
 In the next milestone, I hope to:
 
-- [X] Create a new "meal plan" table that can store a meal plan for the next seven days;
-- [x] Print the meal plan for the next seven days
+- [X] Create a new "groceries" function that generates, prints, and saves a grocery list based on what's on the meal plan
