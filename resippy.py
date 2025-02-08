@@ -10,6 +10,9 @@ from tabulate import tabulate
 from sqlparse.tokens import Keyword
 import csv
 import shutil
+from bs4 import BeautifulSoup
+import requests
+import os
 
 connection = sqlite3.connect('resippy.db')
 cursor = connection.cursor()
@@ -27,7 +30,7 @@ def setup_database(cursor, connection):
     cursor.execute('CREATE TABLE IF NOT EXISTS menu (id INTEGER PRIMARY KEY, name TEXT UNIQUE, dish_type TEXT, cuisine TEXT, drumlin_rating DECIMAL, ian_rating DECIMAL, lina_rating DECIMAL, last_made DATE)')
     connection.commit()
 
-    cursor.execute('CREATE TABLE IF NOT EXISTS ingredients (ingredient_id INTEGER PRIMARY KEY, ingredient_name TEXT UNIQUE)')
+    cursor.execute('CREATE TABLE IF NOT EXISTS ingredients (ingredient_id INTEGER PRIMARY KEY, ingredient_name TEXT UNIQUE, grocery_location TEXT)')
     connection.commit()
     
     cursor.execute('CREATE TABLE IF NOT EXISTS units (unit_id INTEGER PRIMARY KEY, unit_name TEXT UNIQUE)')
@@ -264,8 +267,10 @@ def add_ingredients(args, recipe_id, **kwargs):
                             ing_id = True
                         except IndexError:
                             # Ingredient does not exist in table: create it
-                            ing_make_query = "INSERT INTO ingredients (ingredient_name) VALUES (?)"
-                            cursor.execute(ing_make_query, (ingredient[0].lower().title(),))
+                            # Find grocery location
+                            aisle = find_grocery_location(ingredient[0].lower())
+                            ing_make_query = "INSERT INTO ingredients (ingredient_name, grocery_location) VALUES (?,?)"
+                            cursor.execute(ing_make_query, (ingredient[0].lower().title(),aisle))
                             connection.commit()
                 else:
                     return False, "One or more of the ingredients is missing a name. Please check the .csv file and then try again."
@@ -557,6 +562,120 @@ def print_mealplan(**kwargs):
     num_columns = len(headers)
     max_col_width = (console_width - (num_columns+1)) // num_columns
     print(tabulate(mealplan_with_recipes, headers=headers, tablefmt="grid", numalign='center', maxcolwidths=[max_col_width] * num_columns))
+
+def create_grocery_list(save=False,**kwargs):
+    """Creates a grocery list for whatever is in the current meal plan. Only includes days that have not happened yet.
+
+    Returns:
+        True and an empty list if the grocery list is printed.
+        False and an error message if there is nothing in the meal plan.
+    """
+    grocery_list = {}
+    current_day = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0).strftime('%Y-%m-%d')
+    # Find meals from mealplan
+    mp_query = "SELECT recipe_id FROM mealplan WHERE date>?"
+    cursor.execute(mp_query, (current_day,))
+    meals = cursor.fetchall()
+    if len(meals) == 0:
+        return(False, "Your meal plan is empty. Please fill it before trying to create a grocery list.")
+    # For each recipe:
+    for meal in meals:
+        # Gather ingredients
+        find_ingredients_query = "SELECT * FROM recipe_ingredients WHERE recipe_id=?"
+        cursor.execute(find_ingredients_query, meal)
+        recipe_ingredients = cursor.fetchall()
+        for ingredient in recipe_ingredients:
+            # Find ingredient name
+            ingredient_id = ingredient[2]
+            find_ing_name_query = "SELECT * FROM ingredients WHERE ingredient_id=?"
+            cursor.execute(find_ing_name_query, (ingredient_id,))
+            ingredient_details = cursor.fetchall()
+            ingredient_name = ingredient_details[0][1]
+            ingredient_location = ingredient_details[0][2]
+            if ingredient_name not in grocery_list:
+                grocery_list[ingredient_name] = {}
+                grocery_list[ingredient_name]["location"] = ingredient_location
+            # Find units
+            unit_id = ingredient[4]
+            if unit_id != None:
+                find_units_query = "SELECT unit_name FROM units WHERE unit_id=?"
+                cursor.execute(find_units_query, (unit_id,))
+                unit_name = cursor.fetchall()[0][0]
+            else:
+                unit_name = "Units"
+            # Find quantity
+            quantity = ingredient[3]
+            # Add to list
+            quant_added = False
+            for existing_quantity in grocery_list[ingredient_name].keys():
+                if existing_quantity == unit_name:
+                    grocery_list[ingredient_name][existing_quantity] = grocery_list[ingredient_name][existing_quantity] + quantity
+                    quant_added = True
+            if not quant_added:
+                grocery_list[ingredient_name][unit_name] = quantity
+    # Print out grocery list
+    if len(grocery_list) != 0:
+        output = []
+        def add_output(text):
+            print(text)
+            output.append(text)
+        add_output("GROCERY LIST")
+        add_output("-------------")
+        # Organize by location
+        location_list = [grocery_list[ingredient]["location"] for ingredient in grocery_list.keys()]
+        location_list = list(set(location_list))
+        for location in location_list:
+            add_output(location.upper())
+            add_output('----------------------')
+            for ingredient in grocery_list.keys():
+                if grocery_list[ingredient]["location"] == location:
+                    unit_str = ""
+                    amounts = grocery_list[ingredient]
+                    for units in amounts.keys():
+                        if units != "location":
+                            unit_str += str(amounts[units]) + " " + units + ", "
+                    unit_str = unit_str[:-2]
+                    add_output(ingredient + ": " + unit_str)
+            add_output(" ")    
+        if save:
+            if not os.path.isdir('groceries'):
+                os.mkdir('groceries')
+            os.chdir('groceries')
+            with open('groceries_{day}.txt'.format(day=current_day), 'w') as file:
+                for line in output:
+                    file.write(line + "\n")
+            os.chdir('..')
+    return True, ""
+
+def random_recipe (args, **kwargs):
+    """Picks and prints a random recipe from the menu.
+
+    Args:
+        args (dictionary): Optional filter arguments. 
+
+    Returns:
+        _type_: _description_
+    """
+    sql_query = "SELECT * FROM menu"
+
+    if args['filter'] != None:
+        sql_query += " WHERE "
+        sql_query += args['filter']
+
+    sql_query += " ORDER BY RANDOM() LIMIT 1"
+
+    try:
+        cursor.execute(sql_query)
+        recipe = cursor.fetchall()
+        print("RECIPE: " + recipe[0][1])
+        print("DISH TYPE: " + str(recipe[0][2]))
+        print("CUISINE: " + str(recipe[0][3]))
+        print("DRUMLIN RATING: " + str(recipe[0][4]))
+        print("IAN RATING: " + str(recipe[0][5]))
+        print("LINA RATING: " + str(recipe[0][6]))
+        print("LAST MADE: " + str(recipe[0][7]))
+    except:
+        raise sqlite3.DatabaseError
 
 # Helper Functions
 def check_date(input_date):
@@ -858,6 +977,40 @@ def safe_str(value):
     """
     return str(value) if value is not None else ''
     
+def find_grocery_location(ingredient):
+    """Uses web scraping to find the aisle categorization Food Basics uses for that ingredient.
+
+    Args:
+        ingredient (string): The ingredient.
+
+    Returns:
+        str: The aisle.
+    """
+    search_url = "https://www.foodbasics.ca/search?filter="
+    if " " in ingredient:
+        ingredient = ingredient.replace(" ", "+")
+    search_url += ingredient
+    try:
+        search_results = requests.get(search_url)
+        search_results.raise_for_status()
+        soup = BeautifulSoup(search_results.content, 'html.parser')
+        products = soup.find_all('div', attrs={'data-product-category-en': True})
+        product_locations = [div['data-product-category-en'] for div in products]
+        if product_locations:
+            likely_locations = {}
+            for location in product_locations:
+                if location not in likely_locations.keys():
+                    likely_locations[location] = 1
+                else:
+                    likely_locations[location] += 1
+            if len(likely_locations) > 1:
+                most_likely = max(likely_locations, key=likely_locations.get)
+            else:
+                most_likely = list(likely_locations.keys())[0]
+        return most_likely
+    except:
+        return("Unknown")
+
 # I/O Functions
 def create_parser():
     """
@@ -883,6 +1036,9 @@ def create_parser():
     parser.add_argument('--rating', action="store_true", help="View the rating system.")
     parser.add_argument('--addtomealplan', nargs=2, type=str, help="Day of the week and the recipe you would like to add to the meal plan.", metavar=('WEEKDAY','RECIPENAME'))
     parser.add_argument('--printmealplan', action="store_true", help="View the existing meal plan.")
+    parser.add_argument('--groceries', action="store_true", help="Create a grocery list for the meals currently in the meal plan.")
+    parser.add_argument('--save', action="store_true", help="Saves the grocery list into a .txt file.")
+    parser.add_argument('--random', action="store_true", help="Print a random recipe name to the terminal.")
     menu_exclusives = parser.add_mutually_exclusive_group()
     menu_exclusives.add_argument('--new', help="Name of the recipe you would like to add to the menu", metavar="RECIPENAME")
     menu_exclusives.add_argument('--update_menu', help="Name of the recipe you would like to update in the menu", metavar="RECIPENAME")
@@ -974,3 +1130,13 @@ if __name__ == "__main__":
     ## Print the meal plan
     if args.printmealplan:
         print_mealplan()
+    ## Creates & prints the grocery list
+    if args.groceries:
+        if args.save:
+            created, error = create_grocery_list(save=True)
+        else:
+            created, error = create_grocery_list(save=True)
+        if not created:
+            print('An error has occurred. Please try again. \nError Information: {}'.format(error))
+    if args.random:
+        random_recipe(vars(args))
