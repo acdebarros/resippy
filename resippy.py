@@ -12,6 +12,7 @@ import csv
 import shutil
 from bs4 import BeautifulSoup
 import requests
+import os
 
 connection = sqlite3.connect('resippy.db')
 cursor = connection.cursor()
@@ -562,7 +563,7 @@ def print_mealplan(**kwargs):
     max_col_width = (console_width - (num_columns+1)) // num_columns
     print(tabulate(mealplan_with_recipes, headers=headers, tablefmt="grid", numalign='center', maxcolwidths=[max_col_width] * num_columns))
 
-def create_grocery_list(**kwargs):
+def create_grocery_list(save=False,**kwargs):
     """Creates a grocery list for whatever is in the current meal plan. Only includes days that have not happened yet.
 
     Raises:
@@ -584,15 +585,17 @@ def create_grocery_list(**kwargs):
         find_ingredients_query = "SELECT * FROM recipe_ingredients WHERE recipe_id=?"
         cursor.execute(find_ingredients_query, meal)
         recipe_ingredients = cursor.fetchall()
-
         for ingredient in recipe_ingredients:
             # Find ingredient name
             ingredient_id = ingredient[2]
-            find_ing_name_query = "SELECT ingredient_name FROM ingredients WHERE ingredient_id=?"
+            find_ing_name_query = "SELECT * FROM ingredients WHERE ingredient_id=?"
             cursor.execute(find_ing_name_query, (ingredient_id,))
-            ingredient_name = cursor.fetchall()[0][0]
-            if ingredient not in grocery_list:
+            ingredient_details = cursor.fetchall()
+            ingredient_name = ingredient_details[0][1]
+            ingredient_location = ingredient_details[0][2]
+            if ingredient_name not in grocery_list:
                 grocery_list[ingredient_name] = {}
+                grocery_list[ingredient_name]["location"] = ingredient_location
             # Find units
             unit_id = ingredient[4]
             if unit_id != None:
@@ -613,14 +616,37 @@ def create_grocery_list(**kwargs):
                 grocery_list[ingredient_name][unit_name] = quantity
     # Print out grocery list
     if len(grocery_list) != 0:
-        print("GROCERY LIST")
-        for ingredient in grocery_list.keys():
-            unit_str = ""
-            amounts = grocery_list[ingredient]
-            for units in amounts.keys():
-                unit_str += str(amounts[units]) + " " + units + ", "
-            unit_str = unit_str[:-2]
-            print(ingredient + ": " + unit_str)
+        output = []
+        def add_output(text):
+            print(text)
+            output.append(text)
+        add_output("GROCERY LIST")
+        add_output("-------------")
+        # Organize by location
+        location_list = [grocery_list[ingredient]["location"] for ingredient in grocery_list.keys()]
+        location_list = list(set(location_list))
+        for location in location_list:
+            add_output(location.upper())
+            add_output('----------------------')
+            for ingredient in grocery_list.keys():
+                if grocery_list[ingredient]["location"] == location:
+                    unit_str = ""
+                    amounts = grocery_list[ingredient]
+                    for units in amounts.keys():
+                        if units != "location":
+                            unit_str += str(amounts[units]) + " " + units + ", "
+                    unit_str = unit_str[:-2]
+                    add_output(ingredient + ": " + unit_str)
+            add_output(" ")    
+        if save:
+            if not os.path.isdir('groceries'):
+                os.mkdir('groceries')
+            os.chdir('groceries')
+            with open('groceries_{day}.txt'.format(day=current_day), 'w') as file:
+                for line in output:
+                    file.write(line + "\n")
+            os.chdir('..')
+    return True, ""
 
 # Helper Functions
 def check_date(input_date):
@@ -954,7 +980,7 @@ def find_grocery_location(ingredient):
                 most_likely = list(likely_locations.keys())[0]
         return most_likely
     except:
-        return("")
+        return("Unknown")
 
 # I/O Functions
 def create_parser():
@@ -982,6 +1008,7 @@ def create_parser():
     parser.add_argument('--addtomealplan', nargs=2, type=str, help="Day of the week and the recipe you would like to add to the meal plan.", metavar=('WEEKDAY','RECIPENAME'))
     parser.add_argument('--printmealplan', action="store_true", help="View the existing meal plan.")
     parser.add_argument('--groceries', action="store_true", help="Create a grocery list for the meals currently in the meal plan.")
+    parser.add_argument('--save', action="store_true", help="Saves the grocery list into a .txt file.")
     menu_exclusives = parser.add_mutually_exclusive_group()
     menu_exclusives.add_argument('--new', help="Name of the recipe you would like to add to the menu", metavar="RECIPENAME")
     menu_exclusives.add_argument('--update_menu', help="Name of the recipe you would like to update in the menu", metavar="RECIPENAME")
@@ -1073,5 +1100,11 @@ if __name__ == "__main__":
     ## Print the meal plan
     if args.printmealplan:
         print_mealplan()
+    ## Creates & prints the grocery list
     if args.groceries:
-        created, error = create_grocery_list()
+        if args.save:
+            created, error = create_grocery_list(save=True)
+        else:
+            created, error = create_grocery_list(save=True)
+        if not created:
+            print('An error has occurred. Please try again. \nError Information: {}'.format(error))
