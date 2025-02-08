@@ -566,10 +566,9 @@ def print_mealplan(**kwargs):
 def create_grocery_list(save=False,**kwargs):
     """Creates a grocery list for whatever is in the current meal plan. Only includes days that have not happened yet.
 
-    Raises:
-
     Returns:
-        _type_: _description_
+        True and an empty list if the grocery list is printed.
+        False and an error message if there is nothing in the meal plan.
     """
     grocery_list = {}
     current_day = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0).strftime('%Y-%m-%d')
@@ -647,6 +646,36 @@ def create_grocery_list(save=False,**kwargs):
                     file.write(line + "\n")
             os.chdir('..')
     return True, ""
+
+def random_recipe (args, **kwargs):
+    """Picks and prints a random recipe from the menu.
+
+    Args:
+        args (dictionary): Optional filter arguments. 
+
+    Returns:
+        _type_: _description_
+    """
+    sql_query = "SELECT * FROM menu"
+
+    if args['filter'] != None:
+        sql_query += " WHERE "
+        sql_query += args['filter']
+
+    sql_query += " ORDER BY RANDOM() LIMIT 1"
+
+    try:
+        cursor.execute(sql_query)
+        recipe = cursor.fetchall()
+        print("RECIPE: " + recipe[0][1])
+        print("DISH TYPE: " + str(recipe[0][2]))
+        print("CUISINE: " + str(recipe[0][3]))
+        print("DRUMLIN RATING: " + str(recipe[0][4]))
+        print("IAN RATING: " + str(recipe[0][5]))
+        print("LINA RATING: " + str(recipe[0][6]))
+        print("LAST MADE: " + str(recipe[0][7]))
+    except:
+        raise sqlite3.DatabaseError
 
 # Helper Functions
 def check_date(input_date):
@@ -1009,6 +1038,7 @@ def create_parser():
     parser.add_argument('--printmealplan', action="store_true", help="View the existing meal plan.")
     parser.add_argument('--groceries', action="store_true", help="Create a grocery list for the meals currently in the meal plan.")
     parser.add_argument('--save', action="store_true", help="Saves the grocery list into a .txt file.")
+    parser.add_argument('--random', action="store_true", help="Print a random recipe name to the terminal.")
     menu_exclusives = parser.add_mutually_exclusive_group()
     menu_exclusives.add_argument('--new', help="Name of the recipe you would like to add to the menu", metavar="RECIPENAME")
     menu_exclusives.add_argument('--update_menu', help="Name of the recipe you would like to update in the menu", metavar="RECIPENAME")
@@ -1108,3 +1138,5 @@ if __name__ == "__main__":
             created, error = create_grocery_list(save=True)
         if not created:
             print('An error has occurred. Please try again. \nError Information: {}'.format(error))
+    if args.random:
+        random_recipe(vars(args))
