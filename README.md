@@ -3,6 +3,7 @@ A CLI recipe app for the homehold.
 
 ### Usage
 
+<pre>
 usage: resippy.py [-h] [--drumlin_rating DRUMLIN_RATING] [--ian_rating IAN_RATING] [--lina_rating LINA_RATING] [--last_made DD/MM/YYYY] [--cuisine CUISINE] [--dish_type DISH_TYPE] [--viewmenu] [--filter FILTER] [--order ORDERBY] [--limit LIMIT] [--printrecipe RECIPENAME] [--addingredients RECIPENAME CSVPATH] [--addinstructions RECIPENAME TXTPATH] [--rating] [--addtomealplan WEEKDAY RECIPENAME] [--printmealplan] [--groceries] [--save] [--random] [--new RECIPENAME | --update_menu RECIPENAME | --del_recipe RECIPENAME]
 
 options:
@@ -40,3 +41,4 @@ options:
                         Name of the recipe you would like to update in the menu
   --del_recipe RECIPENAME
                         Name of the recipe you would like to delete from the menu
+</pre>
