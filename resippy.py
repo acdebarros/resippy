@@ -792,6 +792,9 @@ def check_order(order):
     Returns:
         sql_query: Order statement organized as an SQL query.
     """
+    # Ensure order has two parts
+    if len(order.split()) != 2:
+        raise argparse.ArgumentTypeError("--order argument must be two words (one column, one of ASC or DESC)")
     # Create & parse SQL query
     query = "SELECT * FROM menu ORDER BY "
     query += order
