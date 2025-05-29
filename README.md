@@ -1,5 +1,7 @@
 # resippy
-A CLI recipe app for the homehold.
+A CLI recipe app for the homehold. 
+
+This was a pet project I used to test out my Python skills in coding CLI programs. It's meant to be used by myself and my roommates to keep track of recipes, our meal plan, and our personal feelings about each dish we make. It's pretty customized to my specific household/needs, but you can always play around with it to make it fit your household!
 
 ### Usage
 
